@@ -81,7 +81,7 @@ CREATE TABLE Configuracion (
 );
 
 CREATE TABLE Contenido (
-    idContenido NUMBER(10) PRIMARY KEY,
+    idContenido NUMBER(10) GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     idCreador NUMBER(10) NOT NULL REFERENCES Agente(idAgente),
     idComunidad NUMBER(10) NOT NULL REFERENCES Comunidad,
     estado VARCHAR2(10) CHECK (estado IN ('Abierta', 'Cerrada', 'Eliminada')),
@@ -91,11 +91,11 @@ CREATE TABLE Contenido (
 );
 
 CREATE TABLE Accion (
-    idAccion NUMBER(10) PRIMARY KEY,
+    idAccion NUMBER(10) GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     idAgente NUMBER(10) REFERENCES Agente,
     idContenido NUMBER(10) REFERENCES Contenido,
     fechaAccion DATE NOT NULL,
-    tipo VARCHAR2(10) NOT NULL CHECK (tipo IN ('Ocultar', 'Eliminar', 'Cerrar'))
+    tipo VARCHAR2(10) NOT NULL CHECK (tipo IN ('Abrir', 'Eliminar', 'Cerrar'))
 );
 
 CREATE TABLE Publicacion (
@@ -273,7 +273,7 @@ END;
 
 -- RNE08
 CREATE OR REPLACE TRIGGER ACTUALIZAR_CEDE_NUEVO_ADMIN
-BEFORE INSERT OR UPDATE ON Cede
+AFTER INSERT OR UPDATE ON Cede
 FOR EACH ROW
 DECLARE
     v_agente NUMBER(10);
@@ -567,45 +567,154 @@ BEGIN
     END IF;
 END;
 
+-- RNE23
+CREATE OR REPLACE TRIGGER ACTUALIZAR_PUNTUACION_VOTO
+AFTER INSERT OR UPDATE ON Voto
+FOR EACH ROW
+BEGIN
+    IF :NEW.tipo = 'Positivo' THEN
+        UPDATE Contenido
+        SET puntuacion = puntuacion + 1
+        WHERE idContenido = :NEW.idContenido;
+    ELSE
+        UPDATE Contenido
+        SET puntuacion = puntuacion - 1
+        WHERE idContenido = :NEW.idContenido;
+    END IF;
+END;
+
+-- RNE24
+CREATE OR REPLACE TRIGGER ACTUALIZAR_VISIBILIDAD_ACCION
+AFTER INSERT OR UPDATE ON Accion
+FOR EACH ROW
+BEGIN
+    IF :NEw.tipo = 'Abrir' THEN
+        UPDATE Contenido
+        SET estado = 'Abierta'
+        WHERE idContenido = :NEW.idContenido;
+    ELSIF :NEW.tipo = 'Eliminar' THEN
+        UPDATE Contenido
+        SET estado = 'Eliminada'
+        WHERE idContenido = :NEW.idContenido;
+    ELSE
+        UPDATE Contenido
+        SET estado = 'Cerrada'
+        WHERE idContenido = :NEW.idContenido;
+    END IF;
+END;
+
 /*
     PARTE 2
 */
 
 -- 2.1.
 CREATE OR REPLACE PROCEDURE REGISTRAR_AGENTE (
-    emailUsuario IN VARCHAR2(70),
-    nombre IN VARCHAR2(30),
-    fechaCreacion IN DATE,
-    descAgente IN VARCHAR2(50),
-    estado IN VARCHAR2(10),
-    configuracion IN VARCHAR2(10),
-    tipo IN VARCHAR2(25),
-    version IN VARCHAR2(10),
-    descConfig IN VARCHAR2(50)
+    p_emailUsuario IN VARCHAR2,
+    p_nombre IN VARCHAR2,
+    p_descAgente IN VARCHAR2,
+    p_estado IN VARCHAR2,
+    p_configuracion IN VARCHAR2,
+    p_tipo IN VARCHAR2,
+    p_fechaCreacion IN DATE,
+    p_fechaAplicacion IN DATE,
+    p_version IN VARCHAR2,
+    p_descConfig IN VARCHAR2
 ) AS
+    v_idAgente NUMBER(10);
 BEGIN
-    INSERT INTO Agente VALUES (nombre, fechaCreacion, descAgente, estado, configuracion, tipo, emailUsuario)
+    INSERT INTO Agente VALUES (p_nombre, p_fechaCreacion, p_descAgente, p_estado, p_configuracion, p_tipo, p_emailUsuario)
     RETURNING idAgente INTO v_idAgente;
+
+    INSERT INTO Configuracion VALUES (v_idAgente, p_version, p_fechaAplicacion, p_descConfig);
 END;
 
 -- 2.2.
-CREATE OR REPLACE PROCEDURE TRANSFERIR_AGENTE (vars) AS
+CREATE OR REPLACE PROCEDURE TRANSFERIR_AGENTE (
+    p_emailUsuarioRec IN VARCHAR2,
+    p_idAgente IN NUMBER,
+    p_fechaReclamo IN DATE,
+    p_emailUsuarioCed IN VARCHAR2,
+    p_fechaCesion IN DATE
+) AS
+    v_idReclamo NUMBER(10);
 BEGIN
+    INSERT INTO Reclamo VALUES (p_emailUsuarioRec, p_idAgente, p_fechaReclamo)
+    RETURNING idReclamo INTO v_idReclamo;
+
+    INSERT INTO Cede VALUES (v_idReclamo, p_emailUsuarioCed, p_fechaCesion);
 END;
 
 -- 2.3.
-CREATE OR REPLACE PROCEDURE GENERAR_PUBLICACION (vars) AS
+CREATE OR REPLACE PROCEDURE GENERAR_PUBLICACION (
+    p_idAgente IN NUMBER,
+    p_idComunidad IN NUMBER,
+    p_estado IN VARCHAR2,
+    p_fechaCreacion IN DATE,
+    p_puntuacion IN NUMBER,
+    p_texto IN VARCHAR2
+) AS
 BEGIN
+    INSERT INTO Contenido VALUES(
+        p_idAgente,
+        p_idComunidad,
+        p_estado,
+        p_fechaCreacion,
+        p_puntuacion,
+        p_texto
+    );
 END;
 
 -- 2.6.
-CREATE OR REPLACE PROCEDURE MODERAR_CONTENIDO (vars) AS
+CREATE OR REPLACE PROCEDURE MODERAR_CONTENIDO (
+    p_idModerador IN NUMBER,
+    p_idContenido IN NUMBER,
+    p_fechaAccion IN DATE,
+    p_tipo IN VARCHAR2
+) AS
 BEGIN
+    INSERT INTO Accion VALUES (
+        p_idModerador,
+        p_idContenido,
+        p_fechaAccion,
+        p_tipo 
+    );
 END;
 
 -- 2.8.
-CREATE OR REPLACE PROCEDURE OBTENER_TOP10_PUBS_ACTIVAS_EN_COMUNIDAD (vars) AS
+CREATE OR REPLACE PROCEDURE OBTENER_TOP10_PUBS_ACTIVAS_EN_COMUNIDAD (
+    p_idAdminFiltro IN NUMBER DEFAULT -1,
+    p_idComunidad IN NUMBER,
+    p_idAdmin IN NUMBER,
+    p_cursorRes OUT SYS_REFCURSOR
+) AS
 BEGIN
+    IF p_filtrarPorAdmin = -1 THEN
+        OPEN p_cursorRes FOR
+            SELECT c.puntuacion, c.titulo, c.fechaCreacion, a.nombre, a.emailAdmin
+            FROM Publicacion p
+            INNER JOIN Contenido c ON c.idContenido = p.idPub
+            INNER JOIN Agente a ON a.idAgente = c.idCreador
+            WHERE c.idComunidad = p_idComunidad
+            AND p.estado = 'Abierta'
+            AND c.puntuacion > 0
+            AND c.fechaCreacion > (SYSDATE - 30)
+            ORDER BY c.puntuacion DESC
+            FETCH FIRST 10 ROWS ONLY;
+    ELSE
+        OPEN p_cursorRes FOR
+            SELECT c.puntuacion, c.titulo, c.fechaCreacion, a.nombre, a.emailAdmin
+            FROM Publicacion p
+            INNER JOIN Contenido c ON c.idContenido = p.idPub
+            INNER JOIN Agente a ON a.idAgente = c.idCreador
+            WHERE c.idComunidad = p_idComunidad
+            AND c.idCreador = p_idAdminFiltro
+            AND p.estado = 'Abierta'
+            AND c.puntuacion > 0
+            AND c.fechaCreacion > (SYSDATE - 30)
+            ORDER BY c.puntuacion DESC
+            FETCH FIRST 10 ROWS ONLY;
+        RAISE_APPLICATION_ERROR(-20028, 'Parámetro inválido.');
+    END IF;
 END;
 
 /*
