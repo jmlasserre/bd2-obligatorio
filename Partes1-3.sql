@@ -39,7 +39,7 @@ CREATE TABLE Usuario_Telefono (
 
 CREATE TABLE Agente (
     nombre VARCHAR2(30) NOT NULL,
-    idAgente NUMBER(10) PRIMARY KEY,
+    idAgente NUMBER(10) GENERATED ALWAYS AS IDENTITY PRIMARY KEY, -- recuperado de https://stackoverflow.com/a/78012822.
     fechaCreacion DATE NOT NULL,
     descripcion VARCHAR2(50),
     estado VARCHAR2(10) NOT NULL CHECK (estado IN ('Activo', 'Suspendido')),
@@ -72,7 +72,7 @@ CREATE TABLE Comunidad (
 );
 
 CREATE TABLE Configuracion (
-    idConfig NUMBER(10),
+    idConfig NUMBER(10) GENERATED ALWAYS AS IDENTITY,
     idAgente NUMBER(10) REFERENCES Agente,
     version VARCHAR2(10) NOT NULL,
     fechaAplicacion DATE NOT NULL,
@@ -570,6 +570,43 @@ END;
 /*
     PARTE 2
 */
+
+-- 2.1.
+CREATE OR REPLACE PROCEDURE REGISTRAR_AGENTE (
+    emailUsuario IN VARCHAR2(70),
+    nombre IN VARCHAR2(30),
+    fechaCreacion IN DATE,
+    descAgente IN VARCHAR2(50),
+    estado IN VARCHAR2(10),
+    configuracion IN VARCHAR2(10),
+    tipo IN VARCHAR2(25),
+    version IN VARCHAR2(10),
+    descConfig IN VARCHAR2(50)
+) AS
+BEGIN
+    INSERT INTO Agente VALUES (nombre, fechaCreacion, descAgente, estado, configuracion, tipo, emailUsuario)
+    RETURNING idAgente INTO v_idAgente;
+END;
+
+-- 2.2.
+CREATE OR REPLACE PROCEDURE TRANSFERIR_AGENTE (vars) AS
+BEGIN
+END;
+
+-- 2.3.
+CREATE OR REPLACE PROCEDURE GENERAR_PUBLICACION (vars) AS
+BEGIN
+END;
+
+-- 2.6.
+CREATE OR REPLACE PROCEDURE MODERAR_CONTENIDO (vars) AS
+BEGIN
+END;
+
+-- 2.8.
+CREATE OR REPLACE PROCEDURE OBTENER_TOP10_PUBS_ACTIVAS_EN_COMUNIDAD (vars) AS
+BEGIN
+END;
 
 /*
     PARTE 3 
