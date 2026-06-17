@@ -39,7 +39,7 @@ CREATE TABLE Usuario_Telefono (
 
 CREATE TABLE Agente (
     nombre VARCHAR2(30) NOT NULL,
-    idAgente NUMBER(10) GENERATED ALWAYS AS IDENTITY PRIMARY KEY, -- recuperado de https://stackoverflow.com/a/78012822.
+    idAgente NUMBER(10) GENERATED ALWAYS AS IDENTITY (START WITH 1 INCREMENT BY 1) PRIMARY KEY, -- recuperado de https://stackoverflow.com/a/78012822.
     fechaCreacion DATE NOT NULL,
     descripcion VARCHAR2(50),
     estado VARCHAR2(10) NOT NULL CHECK (estado IN ('Activo', 'Suspendido')),
@@ -76,7 +76,7 @@ CREATE TABLE Configuracion (
     idAgente NUMBER(10) REFERENCES Agente,
     version VARCHAR2(10) NOT NULL,
     fechaAplicacion DATE NOT NULL,
-    tipo VARCHAR2(10) CHECK (tipo IN ('Simple', 'Compuesta'))
+    tipo VARCHAR2(10) CHECK (tipo IN ('Simple', 'Compuesta')),
     descripcion VARCHAR2(50),
     PRIMARY KEY (idConfig, idAgente)
 );
@@ -143,6 +143,7 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20001, 'La fecha de registro de un usuario no puede ser mayor a la fecha actual.');
     END IF;
 END;
+/
 
 -- RNE02
 CREATE OR REPLACE TRIGGER VALIDAR_FECHA_CREACION
@@ -153,21 +154,23 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20001, 'La fecha de creación de un agente no puede ser mayor a la fecha actual.');
     END IF;
 END;
+/
 
 -- RNE03
-CREATE OR REPLACE TRIGGER VALIDAR_AGENTE_SUSP_NO_PERTENECE
-BEFORE INSERT OR UPDATE ON Pertenece
+CREATE OR REPLACE TRIGGER VALIDAR_AGENTE_SUSP_CREA_CONTENIDO
+BEFORE INSERT OR UPDATE ON Contenido
 FOR EACH ROW
 DECLARE
     v_estado VARCHAR2(10);
 BEGIN
     SELECT estado INTO v_estado
     FROM Agente
-    WHERE idAgente = :NEW.idAgente;
+    WHERE idAgente = :NEW.idCreador;
     IF v_estado = 'Suspendido' THEN
-        RAISE_APPLICATION_ERROR(-20002, 'Un agente suspendido no puede pertenecer a una comunidad.');
+        RAISE_APPLICATION_ERROR(-20005, 'Un agente suspendido no puede crear contenido.');
     END IF;
 END;
+/
 
 -- también necesitamos uno que elimine las tuplas correspondientes cuando se actualiza el estado de un agente.
 CREATE OR REPLACE TRIGGER VALIDAR_AGENTE_SUSP_ELIMINAR_PERTENECE
@@ -179,6 +182,7 @@ BEGIN
         WHERE idAgente = :NEW.idAgente;
     END IF;
 END;
+/
 
 -- RNE04
 CREATE OR REPLACE TRIGGER VALIDAR_AGENTE_SUSP_VOTO
@@ -194,6 +198,7 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20003, 'Un agente suspendido no puede emitir votos.');
     END IF;
 END;
+/
 
 CREATE OR REPLACE TRIGGER VALIDAR_AGENTE_SUSP_MODERA
 BEFORE INSERT OR UPDATE ON Accion
@@ -208,20 +213,7 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20004, 'Un agente suspendido no puede moderar contenidos.');
     END IF;
 END;
-
-CREATE OR REPLACE TRIGGER VALIDAR_AGENTE_SUSP_CREA_CONTENIDO
-BEFORE INSERT OR UPDATE ON Contenido
-FOR EACH ROW
-DECLARE
-    v_estado VARCHAR2(10);
-BEGIN
-    SELECT estado INTO v_estado
-    FROM Agente
-    WHERE idAgente = :NEW.idAgente;
-    IF v_estado = 'Suspendido' THEN
-        RAISE_APPLICATION_ERROR(-20005, 'Un agente suspendido no puede crear contenido.');
-    END IF;
-END;
+/
 
 -- RNE05
 CREATE OR REPLACE TRIGGER VALIDAR_FECHAS_CEDE_RECLAMO
@@ -237,13 +229,14 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20006, 'Una cesión no puede responder a un reclamo hecho después de esta.');
     END IF;
 END;
+/
 
 -- RNE06
 CREATE OR REPLACE TRIGGER VALIDAR_CEDE_USUARIOS_DIFF
 BEFORE INSERT OR UPDATE ON Cede
 FOR EACH ROW
 DECLARE
-    v_usuarioRec NUMBER(10);
+    v_usuarioRec VARCHAR2(70);
 BEGIN
     SELECT emailUsuario INTO v_usuarioRec
     FROM Reclamo
@@ -252,6 +245,7 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20007, 'Un usuario no puede cederse agentes a sí mismo.');
     END IF;
 END;
+/
 
 -- RNE07
 CREATE OR REPLACE TRIGGER VALIDAR_CEDE_USUARIO_ADMINISTRA_AGENTE
@@ -271,6 +265,7 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20008, 'Un usuario no puede ceder un agente que no administra.');
     END IF;
 END;
+/
 
 -- RNE08
 CREATE OR REPLACE TRIGGER ACTUALIZAR_CEDE_NUEVO_ADMIN
@@ -287,7 +282,8 @@ BEGIN
     SET emailAdmin = v_emailRec
     WHERE idAgente = v_agente;
 END;
-    
+/
+
 -- RNE09
 CREATE OR REPLACE TRIGGER VALIDAR_FECHACREACION_COMUNIDAD
 BEFORE INSERT OR UPDATE ON Comunidad
@@ -297,6 +293,7 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20009, 'La fecha de creación de una comunidad no puede ser posterior a la fecha actual.');
     END IF;
 END;
+/
 
 -- RNE10
 CREATE OR REPLACE TRIGGER VALIDAR_AGENTE_PERTENECE_COMUNIDAD_VOTO
@@ -315,7 +312,8 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20010, 'Un agente no puede emitir votos sobre contenidos de comunidades a las que no pertenece.');
     END IF;
 END;
-    
+/
+
 CREATE OR REPLACE TRIGGER VALIDAR_AGENTE_PERTENECE_COMUNIDAD_ACCION
 BEFORE INSERT OR UPDATE ON Accion
 FOR EACH ROW
@@ -332,6 +330,7 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20011, 'Un agente no puede moderar contenidos de comunidades a las que no pertenece.');
     END IF;
 END;
+/
 
 CREATE OR REPLACE TRIGGER VALIDAR_AGENTE_PERTENECE_COMUNIDAD_CONTENIDO
 BEFORE INSERT OR UPDATE ON Contenido
@@ -348,6 +347,7 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20012, 'Un agente no puede crear contenido en una comunidad si no pertenece a ella.');
     END IF;
 END;
+/
 
 -- RNE11
 CREATE OR REPLACE TRIGGER VALIDAR_COMUNIDAD_ARCHIVADA_NO_PUBS
@@ -369,6 +369,7 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20013, 'Una comunidad archivada no acepta nuevas publicaciones.');
     END IF;
 END;
+/
 
 -- RNE12
 CREATE OR REPLACE TRIGGER VALIDAR_FECHACREACION_CONTENIDO
@@ -379,13 +380,14 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20014, 'La fecha de creación de un contenido no puede ser posterior a la fecha actual.');
     END IF;
 END;
+/
 
 -- RNE13
 CREATE OR REPLACE TRIGGER VALIDAR_AGENTE_CREADOR_CONTENIDO
 BEFORE INSERT OR UPDATE ON Contenido
 FOR EACH ROW
 DECLARE
-    v_tipo VARCHAR2(20);
+    v_tipo VARCHAR2(25);
 BEGIN
     SELECT tipo INTO v_tipo
     FROM Agente
@@ -395,6 +397,7 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20015, 'Solo los agentes generadores de contenido pueden crear contenido.');
     END IF;
 END;
+/
 
 -- RNE14
 CREATE OR REPLACE TRIGGER VALIDAR_AGENTE_ACTIVO_CONTENIDO
@@ -411,6 +414,7 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20016, 'Solo los agentes activos pueden crear contenido.');
     END IF;
 END;
+/
 
 -- RNE15
 CREATE OR REPLACE TRIGGER VALIDAR_NO_CITA_AUTOREF
@@ -421,6 +425,7 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20017, 'Una publicación no puede citarse a sí misma.');
     END IF;
 END;
+/
 
 -- RNE16
 CREATE OR REPLACE TRIGGER VALIDAR_VOTO_PUB_NO_ELIM
@@ -457,6 +462,7 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20019, 'Una publicación eliminada no puede recibir votos.');
     END IF;
 END;
+/
 
 CREATE OR REPLACE TRIGGER VALIDAR_COMENTARIO_A_PUB_ELIM
 BEFORE INSERT OR UPDATE ON Comentario
@@ -472,6 +478,7 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20020, 'Una publicación eliminada no puede recibir comentarios.');
     END IF;
 END;
+/
 
 -- RNE17
 CREATE OR REPLACE TRIGGER VALIDAR_FECHA_EMISION_VOTO
@@ -482,6 +489,7 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20021, 'La fecha de emisión de un voto no puede ser posterior a la actual.');
     END IF;
 END;
+/
 
 -- RNE18
 CREATE OR REPLACE TRIGGER VALIDAR_AGENTE_ES_MODERADOR
@@ -498,6 +506,7 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20022, 'Solo los moderadores pueden supervisar contenidos.');
     END IF;
 END;
+/
 
 -- RNE19
 CREATE OR REPLACE TRIGGER VALIDAR_MODERADOR_PERTENECE_COMUNIDAD
@@ -519,6 +528,7 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20023, 'Un moderador debe pertenecer a una comunidad para supervisar su contenido.');
     END IF;
 END;
+/
 
 -- RNE20
 CREATE OR REPLACE TRIGGER VALIDAR_FECHA_ACCION
@@ -539,6 +549,7 @@ BEGIN
         END IF;
     END IF;
 END;
+/
 
 -- RNE21
 CREATE OR REPLACE TRIGGER VALIDAR_COMENTARIO_NO_AUTOREF
@@ -549,6 +560,7 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20026, 'Un comentario no puede responderse a si mismo.');
     END IF;
 END;
+/
 
 -- RNE22
 CREATE OR REPLACE TRIGGER VALIDAR_COMENTARIO_RESPUESTA_MISMA_PUB_ORIGINAL
@@ -567,22 +579,18 @@ BEGIN
         END IF;
     END IF;
 END;
+/
 
 -- RNE23
 CREATE OR REPLACE TRIGGER ACTUALIZAR_PUNTUACION_VOTO
 AFTER INSERT OR UPDATE ON Voto
 FOR EACH ROW
 BEGIN
-    IF :NEW.tipo = 'Positivo' THEN
-        UPDATE Contenido
-        SET puntuacion = puntuacion + 1
-        WHERE idContenido = :NEW.idContenido;
-    ELSE
-        UPDATE Contenido
-        SET puntuacion = puntuacion - 1
-        WHERE idContenido = :NEW.idContenido;
-    END IF;
+    UPDATE Contenido
+    SET puntuacion = puntuacion + 1
+    WHERE idContenido = :NEW.idContenido;
 END;
+/
 
 -- RNE24
 CREATE OR REPLACE TRIGGER ACTUALIZAR_VISIBILIDAD_ACCION
@@ -603,6 +611,7 @@ BEGIN
         WHERE idContenido = :NEW.idContenido;
     END IF;
 END;
+/
 
 -- RNE25
 CREATE OR REPLACE TRIGGER ACTUALIZAR_CONFIG_AGENTE
@@ -614,14 +623,120 @@ BEGIN
     SELECT fechaAplicacion INTO v_fechaUltima
     FROM Configuracion
     ORDER BY fechaAplicacion DESC
-    FETCH 1;
+    FETCH FIRST 1 ROWS ONLY;
 
     IF v_fechaUltima < :NEW.fechaAplicacion THEN
         UPDATE Agente
         SET configuracion = :NEW.tipo
         WHERE idAgente = :NEW.idAgente;
     END IF;
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        UPDATE Agente
+        SET configuracion = :NEW.tipo
+        WHERE idAgente = :NEW.idAgente;
 END;
+/
+
+-- PARTE C, DATOS DE PRUEBA (vaciar las tablas con cascada antes de insertar)
+
+-- ============================================================================
+-- 1. USUARIOS Y TELÉFONOS
+-- ============================================================================
+INSERT INTO Usuario (email, alias, nombre, apellido, paisDeResidencia, estado, fechaDeRegistro)
+VALUES ('admin1@red.com', 'SuperAdmin', 'Carlos', 'Gómez', 'Argentina', 'Activo', TO_DATE('2026-01-01', 'YYYY-MM-DD'));
+
+INSERT INTO Usuario (email, alias, nombre, apellido, paisDeResidencia, estado, fechaDeRegistro)
+VALUES ('user1@red.com', 'GamerPro', 'Ana', 'Martínez', 'Uruguay', 'Activo', TO_DATE('2026-02-01', 'YYYY-MM-DD'));
+
+INSERT INTO Usuario (email, alias, nombre, apellido, paisDeResidencia, estado, fechaDeRegistro)
+VALUES ('user2@red.com', 'ModMaster', 'Luis', 'Rodríguez', 'Chile', 'Activo', TO_DATE('2026-02-15', 'YYYY-MM-DD'));
+
+INSERT INTO Usuario_Telefono (email, telefono) VALUES ('admin1@red.com', '+541112345678');
+INSERT INTO Usuario_Telefono (email, telefono) VALUES ('user1@red.com', '+59899123456');
+
+-- ============================================================================
+-- 2. AGENTES (IDs autoincrementales: 1, 2, 3...)
+-- ============================================================================
+-- Agente ID 1
+INSERT INTO Agente (nombre, fechaCreacion, descripcion, estado, configuracion, tipo, emailAdmin)
+VALUES ('BotRedactor_A', TO_DATE('2026-03-01', 'YYYY-MM-DD'), 'Genera posts de noticias', 'Activo', 'Simple', 'Generador de contenido', 'admin1@red.com');
+
+-- Agente ID 2
+INSERT INTO Agente (nombre, fechaCreacion, descripcion, estado, configuracion, tipo, emailAdmin)
+VALUES ('BotMod_B', TO_DATE('2026-03-01', 'YYYY-MM-DD'), 'Filtra spam', 'Activo', 'Simple', 'Moderador', 'admin1@red.com');
+
+-- Agente ID 3
+INSERT INTO Agente (nombre, fechaCreacion, descripcion, estado, configuracion, tipo, emailAdmin)
+VALUES ('BotRedactor_C', TO_DATE('2026-03-05', 'YYYY-MM-DD'), 'Postea memes y cultura pop', 'Activo', 'Simple', 'Generador de contenido', 'user2@red.com');
+
+SELECT idAgente, nombre FROM Agente ORDER BY idAgente;
+
+-- ============================================================================
+-- 3. COMUNIDADES
+-- ============================================================================
+INSERT INTO Comunidad (idComunidad, nombre, descripcion, fechaCreacion, tema, archivada)
+VALUES (10, 'gaming_latam', 'Comunidad de videojuegos en LATAM', TO_DATE('2026-01-10', 'YYYY-MM-DD'), 'Videojuegos', 'N');
+
+INSERT INTO Comunidad (idComunidad, nombre, descripcion, fechaCreacion, tema, archivada)
+VALUES (20, 'cine_y_series', 'Hablemos de películas', TO_DATE('2026-01-20', 'YYYY-MM-DD'), 'Entretenimiento', 'N');
+
+-- ============================================================================
+-- 4. PERTENENCIA 
+-- ============================================================================
+INSERT INTO Pertenece (idAgente, idComunidad, participacion) VALUES (1, 10, 'Miembro activo');
+INSERT INTO Pertenece (idAgente, idComunidad, participacion) VALUES (2, 10, 'Miembro activo');
+INSERT INTO Pertenece (idAgente, idComunidad, participacion) VALUES (3, 20, 'Miembro activo');
+
+-- SOLUCIÓN AL ERROR ORA-20016: Se cambia de 'Seguidor' a 'Miembro activo' para que pueda crear contenido
+INSERT INTO Pertenece (idAgente, idComunidad, participacion) VALUES (3, 10, 'Miembro activo'); 
+
+-- ============================================================================
+-- 5. CONTENIDO, PUBLICACIONES Y COMENTARIOS
+-- ============================================================================
+-- Contenido ID 1 (Publicación)
+INSERT INTO Contenido (idCreador, idComunidad, estado, fechaCreacion, puntuacion, texto)
+VALUES (1, 10, 'Abierta', TO_DATE('2026-03-10', 'YYYY-MM-DD'), 0, '¡Bienvenidos al foro de Gaming! ¿Qué juegan hoy?');
+
+INSERT INTO Publicacion (idPub, estado, titulo)
+VALUES (1, 'Abierta', 'Primer Post Oficial de Gaming');
+
+-- Contenido ID 2 (Comentario respondiendo al Contenido 1)
+-- Ahora el Agente 3 ya es 'Miembro activo' en la comunidad 10 y el trigger RNE14 lo aprobará.
+INSERT INTO Contenido (idCreador, idComunidad, estado, fechaCreacion, puntuacion, texto)
+VALUES (3, 10, 'Abierta', TO_DATE('2026-03-11', 'YYYY-MM-DD'), 0, '¡Hola! Yo estoy jugando RPGs.');
+
+INSERT INTO Comentario (idComentario, idContenido, idPubOriginal)
+VALUES (2, 1, 1);
+
+-- ============================================================================
+-- 6. ACCIONES, VOTOS Y CONFIGURACIONES
+-- ============================================================================
+-- Voto al post inicial (ID 1) por parte del Moderador (Agente 2)
+INSERT INTO Voto (idVoto, idAgente, idContenido, fechaEmision)
+VALUES (100, 2, 1, TO_DATE('2026-03-12', 'YYYY-MM-DD'));
+
+-- Acción de moderación: El Agente 2 cierra el post ID 1
+INSERT INTO Accion (idAgente, idContenido, fechaAccion, tipo)
+VALUES (2, 1, TO_DATE('2026-03-15', 'YYYY-MM-DD'), 'Cerrar');
+
+-- Actualización de Configuración del Agente 1 (Ejecuta RNE25)
+INSERT INTO Configuracion (idAgente, version, fechaAplicacion, tipo, descripcion)
+VALUES (1, 'v1.1', TO_DATE('2026-04-01', 'YYYY-MM-DD'), 'Compuesta', 'Actualización de algoritmos');
+
+-- ============================================================================
+-- 7. RECLAMOS Y CESIONES
+-- ============================================================================
+-- Reclamo sobre el Agente 1
+INSERT INTO Reclamo (idReclamo, emailUsuario, idAgente, fechaReclamo)
+VALUES (500, 'user2@red.com', 1, TO_DATE('2026-04-10', 'YYYY-MM-DD'));
+
+-- Cesión del Agente 1 (Ejecuta RNE08 y cambia su admin a user2@red.com)
+INSERT INTO Cede (idReclamo, emailUsuarioCed, fechaCesion)
+VALUES (500, 'admin1@red.com', TO_DATE('2026-04-11', 'YYYY-MM-DD'));
+
+COMMIT;
+
 
 /*
     PARTE 2
