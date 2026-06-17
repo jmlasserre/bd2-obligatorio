@@ -76,6 +76,7 @@ CREATE TABLE Configuracion (
     idAgente NUMBER(10) REFERENCES Agente,
     version VARCHAR2(10) NOT NULL,
     fechaAplicacion DATE NOT NULL,
+    tipo VARCHAR2(10) CHECK (tipo IN ('Simple', 'Compuesta'))
     descripcion VARCHAR2(50),
     PRIMARY KEY (idConfig, idAgente)
 );
@@ -603,6 +604,25 @@ BEGIN
     END IF;
 END;
 
+-- RNE25
+CREATE OR REPLACE TRIGGER ACTUALIZAR_CONFIG_AGENTE
+BEFORE INSERT OR UPDATE ON Configuracion
+FOR EACH ROW
+DECLARE
+    v_fechaUltima DATE;
+BEGIN
+    SELECT fechaAplicacion INTO v_fechaUltima
+    FROM Configuracion
+    ORDER BY fechaAplicacion DESC
+    FETCH 1;
+
+    IF v_fechaUltima < :NEW.fechaAplicacion THEN
+        UPDATE Agente
+        SET configuracion = :NEW.tipo
+        WHERE idAgente = :NEW.idAgente;
+    END IF;
+END;
+
 /*
     PARTE 2
 */
@@ -685,7 +705,7 @@ CREATE OR REPLACE PROCEDURE OBTENER_TOP10_PUBS_ACTIVAS_EN_COMUNIDAD (
     p_idAdminFiltro IN NUMBER DEFAULT -1,
     p_idComunidad IN NUMBER,
     p_idAdmin IN NUMBER,
-    p_cursorRes OUT SYS_REFCURSOR
+    p_cursorRes OUT SYS_REFCURSOR -- https://www.oracletutorial.com/plsql-tutorial/plsql-cursor-variables/
 ) AS
 BEGIN
     IF p_filtrarPorAdmin = -1 THEN
@@ -719,4 +739,64 @@ END;
 
 /*
     PARTE 3 
+*/
+
+/* 
+
+Consulta:
+
+Para una comunidad, obtener los alias y nombres de los usuarios administradores de los agentes
+autores de los comentarios con la menor puntuación negativa publicados en los últimos tres meses,
+así como el nombre del agente y el título de la publicación original. El listado debería estar ordenado
+ascendentemente por la puntuación de los comentarios.
+Tablas: Usuario, Agente, Contenido, Pertenece, Comentario
+
+Funcionalidad: de negocio
+Justificación: permite al sistema identificar quiénes son los usuarios administradores de agentes que han
+realizado comentarios controversiales, abriendo varias posibilidades: restringirles acceso,
+cambiar el estado del agente o incluso realizar acciones sobre las publicaciones. Pueden tratarse de agentes que
+no aporten a la red, sino que activamente provoquen a la comunidad.
+
+*/
+
+-- Fuente: https://stackoverflow.com/questions/11799344/how-can-i-see-the-sql-execution-plan-in-oracle
+EXPLAIN PLAN FOR
+    SELECT u.alias, u.nombre AS "NOMBRE_USUARIO", a.nombre AS "NOMBRE_AGENTE", a.configuracion, p.titulo, co.puntuacion
+    FROM Comunidad c, Contenido co, Comentario com, Publicacion p, Pertenece pe, Agente a, Usuario u
+    WHERE co.puntuacion < 0
+    AND co.idComunidad = c.idComunidad
+    AND com.idComentario = co.idContenido
+    AND p.idPub = com.idPubOriginal
+    AND pe.idComunidad = c.idComunidad
+    AND a.idAgente = pe.idAgente
+    AND u.email = a.emailAdmin
+    AND p.estado = 'Activa'
+    AND co.fechaCreacion > ADD_MONTHS(SYSDATE, -3)
+    AND c.tema = 'Política'
+    ORDER BY co.puntuacion ASC;
+    
+SELECT *
+FROM TABLE(DBMS_XPLAN.DISPLAY (FORMAT=>'ALL +OUTLINE'))
+
+/*
+1. Operaciones principales:
+- Joins naturales
+- Proyecciones (al final, para mostrar los resultados)
+- Selecciones varias
+- Ordenamiento (por puntuación)
+
+2. 
+- Joins => nested loops. Explicar cómo se usan.
+- Proyecciones sobre el final para mostrar los resultados.
+- Selecciones: hay full scan, 
+https://stackoverflow.com/questions/21462886/does-table-access-by-index-rowid-means-optimizer-using-index-or-table
+
+3.
+
+
+
+4.
+
+
+
 */
