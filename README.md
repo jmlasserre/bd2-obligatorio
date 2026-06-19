@@ -17,3 +17,4 @@ Acá pongan todo lo demás que falte hacer.
 
 - [X] Parte 2: Cambiar `RAISE_APPLICATION_ERROR` por excepciones; la rúbrica recomienda.
 - [X] Parte 2: Contemplar casos de "mutación de tablas".
+- [ ] Parte 2: Arreglar procedures. Varios no compilan.
