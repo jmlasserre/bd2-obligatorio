@@ -15,5 +15,5 @@ Obligatorio para Bases de Datos 2
 
 Acá pongan todo lo demás que falte hacer.
 
-- [ ] Parte 2: Cambiar `RAISE_APPLICATION_ERROR` por excepciones; la rúbrica recomienda.
-- [ ] Parte 2: Contemplar casos de "mutación de tablas".
+- [X] Parte 2: Cambiar `RAISE_APPLICATION_ERROR` por excepciones; la rúbrica recomienda.
+- [X] Parte 2: Contemplar casos de "mutación de tablas".

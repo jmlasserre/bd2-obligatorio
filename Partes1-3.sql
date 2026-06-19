@@ -138,10 +138,15 @@ CREATE TABLE Voto (
 CREATE OR REPLACE TRIGGER VALIDAR_FECHA_REGISTRO
 BEFORE INSERT OR UPDATE ON Usuario
 FOR EACH ROW
+DECLARE
+    e_fecha_futura EXCEPTION;
 BEGIN
     IF :NEW.fechaDeRegistro > SYSDATE THEN
-        RAISE_APPLICATION_ERROR(-20001, 'La fecha de registro de un usuario no puede ser mayor a la fecha actual.');
+        RAISE e_fecha_futura;
     END IF;
+EXCEPTION
+    WHEN e_fecha_futura THEN
+        RAISE_APPLICATION_ERROR(-20001, 'La fecha de registro de un usuario no puede ser mayor a la fecha actual.');
 END;
 /
 
@@ -149,10 +154,15 @@ END;
 CREATE OR REPLACE TRIGGER VALIDAR_FECHA_CREACION
 BEFORE INSERT OR UPDATE ON Agente
 FOR EACH ROW
+DECLARE
+    e_fecha_futura EXCEPTION;
 BEGIN
     IF :NEW.fechaCreacion > SYSDATE THEN
-        RAISE_APPLICATION_ERROR(-20001, 'La fecha de creación de un agente no puede ser mayor a la fecha actual.');
+        RAISE e_fecha_futura;
     END IF;
+EXCEPTION
+    WHEN e_fecha_futura THEN
+        RAISE_APPLICATION_ERROR(-20002, 'La fecha de creación de un agente no puede ser mayor a la fecha actual.');
 END;
 /
 
@@ -162,13 +172,20 @@ BEFORE INSERT OR UPDATE ON Contenido
 FOR EACH ROW
 DECLARE
     v_estado VARCHAR2(10);
+    e_agente_suspendido EXCEPTION;
 BEGIN
     SELECT estado INTO v_estado
     FROM Agente
     WHERE idAgente = :NEW.idCreador;
+    
     IF v_estado = 'Suspendido' THEN
-        RAISE_APPLICATION_ERROR(-20005, 'Un agente suspendido no puede crear contenido.');
+        RAISE e_agente_suspendido;
     END IF;
+EXCEPTION
+    WHEN e_agente_suspendido THEN
+        RAISE_APPLICATION_ERROR(-20005, 'Un agente suspendido no puede crear contenido.');
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20090, 'El agente creador especificado no existe.');
 END;
 /
 
@@ -190,13 +207,20 @@ BEFORE INSERT OR UPDATE ON Voto
 FOR EACH ROW
 DECLARE
     v_estado VARCHAR2(10);
+    e_agente_suspendido EXCEPTION;
 BEGIN
     SELECT estado INTO v_estado
     FROM Agente
     WHERE idAgente = :NEW.idAgente;
+    
     IF v_estado = 'Suspendido' THEN
-        RAISE_APPLICATION_ERROR(-20003, 'Un agente suspendido no puede emitir votos.');
+        RAISE e_agente_suspendido;
     END IF;
+EXCEPTION
+    WHEN e_agente_suspendido THEN
+        RAISE_APPLICATION_ERROR(-20003, 'Un agente suspendido no puede emitir votos.');
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20091, 'El agente votante especificado no existe.');
 END;
 /
 
@@ -205,13 +229,20 @@ BEFORE INSERT OR UPDATE ON Accion
 FOR EACH ROW
 DECLARE
     v_estado VARCHAR2(10);
+    e_agente_suspendido EXCEPTION;
 BEGIN
     SELECT estado INTO v_estado
     FROM Agente
     WHERE idAgente = :NEW.idAgente;
+    
     IF v_estado = 'Suspendido' THEN
-        RAISE_APPLICATION_ERROR(-20004, 'Un agente suspendido no puede moderar contenidos.');
+        RAISE e_agente_suspendido;
     END IF;
+EXCEPTION
+    WHEN e_agente_suspendido THEN
+        RAISE_APPLICATION_ERROR(-20004, 'Un agente suspendido no puede moderar contenidos.');
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20092, 'El agente moderador especificado no existe.');
 END;
 /
 
@@ -221,13 +252,20 @@ BEFORE INSERT OR UPDATE ON Cede
 FOR EACH ROW
 DECLARE
     v_fechaRec DATE;
+    e_fecha_invalida EXCEPTION;
 BEGIN
     SELECT fechaReclamo INTO v_fechaRec
     FROM Reclamo
     WHERE idReclamo = :NEW.idReclamo;
+    
     IF v_fechaRec > :NEW.fechaCesion THEN
-        RAISE_APPLICATION_ERROR(-20006, 'Una cesión no puede responder a un reclamo hecho después de esta.');
+        RAISE e_fecha_invalida;
     END IF;
+EXCEPTION
+    WHEN e_fecha_invalida THEN
+        RAISE_APPLICATION_ERROR(-20006, 'Una cesión no puede responder a un reclamo hecho después de esta.');
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20093, 'El reclamo asociado a la cesión no existe.');
 END;
 /
 
@@ -237,13 +275,20 @@ BEFORE INSERT OR UPDATE ON Cede
 FOR EACH ROW
 DECLARE
     v_usuarioRec VARCHAR2(70);
+    e_autocesion EXCEPTION;
 BEGIN
     SELECT emailUsuario INTO v_usuarioRec
     FROM Reclamo
     WHERE idReclamo = :NEW.idReclamo;
+    
     IF v_usuarioRec = :NEW.emailUsuarioCed THEN
-        RAISE_APPLICATION_ERROR(-20007, 'Un usuario no puede cederse agentes a sí mismo.');
+        RAISE e_autocesion;
     END IF;
+EXCEPTION
+    WHEN e_autocesion THEN
+        RAISE_APPLICATION_ERROR(-20007, 'Un usuario no puede cederse agentes a sí mismo.');
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20094, 'El reclamo asociado a esta cesión no existe.');
 END;
 /
 
@@ -254,16 +299,24 @@ FOR EACH ROW
 DECLARE
     v_agente NUMBER(10);
     v_emailAdmin VARCHAR2(70);
+    e_no_es_administrador EXCEPTION;
 BEGIN
     SELECT idAgente INTO v_agente
     FROM Reclamo
     WHERE idReclamo = :NEW.idReclamo;
+    
     SELECT emailAdmin INTO v_emailAdmin
     FROM Agente
     WHERE idAgente = v_agente;
+    
     IF v_emailAdmin <> :NEW.emailUsuarioCed THEN
-        RAISE_APPLICATION_ERROR(-20008, 'Un usuario no puede ceder un agente que no administra.');
+        RAISE e_no_es_administrador;
     END IF;
+EXCEPTION
+    WHEN e_no_es_administrador THEN
+        RAISE_APPLICATION_ERROR(-20008, 'Un usuario no puede ceder un agente que no administra.');
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20095, 'No se encontraron registros del reclamo o del agente relacionado.');
 END;
 /
 
@@ -278,9 +331,15 @@ BEGIN
     SELECT emailUsuario, idAgente INTO v_emailRec, v_agente
     FROM Reclamo
     WHERE idReclamo = :NEW.idReclamo;
+    
     UPDATE Agente
     SET emailAdmin = v_emailRec
     WHERE idAgente = v_agente;
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20096, 'Error al procesar la cesión automática: El reclamo no existe.');
+    WHEN OTHERS THEN
+        RAISE_APPLICATION_ERROR(-20097, 'Error inesperado al actualizar el nuevo administrador del agente.');
 END;
 /
 
@@ -288,10 +347,15 @@ END;
 CREATE OR REPLACE TRIGGER VALIDAR_FECHACREACION_COMUNIDAD
 BEFORE INSERT OR UPDATE ON Comunidad
 FOR EACH ROW
+DECLARE
+    e_fecha_futura EXCEPTION;
 BEGIN
     IF :NEW.fechaCreacion > SYSDATE THEN
-        RAISE_APPLICATION_ERROR(-20009, 'La fecha de creación de una comunidad no puede ser posterior a la fecha actual.');
+        RAISE e_fecha_futura;
     END IF;
+EXCEPTION
+    WHEN e_fecha_futura THEN
+        RAISE_APPLICATION_ERROR(-20009, 'La fecha de creación de una comunidad no puede ser posterior a la fecha actual.');
 END;
 /
 
@@ -301,6 +365,7 @@ BEFORE INSERT OR UPDATE ON Voto
 FOR EACH ROW
 DECLARE
     v_existe NUMBER;
+    e_no_pertenece EXCEPTION;
 BEGIN
     SELECT COUNT(*) INTO v_existe
     FROM Pertenece p
@@ -309,8 +374,11 @@ BEGIN
     AND c.idContenido = :NEW.idContenido;
 
     IF v_existe = 0 THEN
-        RAISE_APPLICATION_ERROR(-20010, 'Un agente no puede emitir votos sobre contenidos de comunidades a las que no pertenece.');
+        RAISE e_no_pertenece;
     END IF;
+EXCEPTION
+    WHEN e_no_pertenece THEN
+        RAISE_APPLICATION_ERROR(-20010, 'Un agente no puede emitir votos sobre contenidos de comunidades a las que no pertenece.');
 END;
 /
 
@@ -319,6 +387,7 @@ BEFORE INSERT OR UPDATE ON Accion
 FOR EACH ROW
 DECLARE
     v_existe NUMBER;
+    e_no_pertenece EXCEPTION;
 BEGIN
     SELECT COUNT(*) INTO v_existe
     FROM Pertenece p
@@ -327,8 +396,11 @@ BEGIN
     AND c.idContenido = :NEW.idContenido;
 
     IF v_existe = 0 THEN
-        RAISE_APPLICATION_ERROR(-20011, 'Un agente no puede moderar contenidos de comunidades a las que no pertenece.');
+        RAISE e_no_pertenece;
     END IF;
+EXCEPTION
+    WHEN e_no_pertenece THEN
+        RAISE_APPLICATION_ERROR(-20011, 'Un agente no puede moderar contenidos de comunidades a las que no pertenece.');
 END;
 /
 
@@ -337,6 +409,7 @@ BEFORE INSERT OR UPDATE ON Contenido
 FOR EACH ROW
 DECLARE
     v_existe NUMBER;
+    e_no_pertenece EXCEPTION;
 BEGIN
     SELECT COUNT(*) INTO v_existe
     FROM Pertenece p
@@ -344,8 +417,11 @@ BEGIN
     AND p.idComunidad = :NEW.idComunidad;
 
     IF v_existe = 0 THEN
-        RAISE_APPLICATION_ERROR(-20012, 'Un agente no puede crear contenido en una comunidad si no pertenece a ella.');
+        RAISE e_no_pertenece;
     END IF;
+EXCEPTION
+    WHEN e_no_pertenece THEN
+        RAISE_APPLICATION_ERROR(-20012, 'Un agente no puede crear contenido en una comunidad si no pertenece a ella.');
 END;
 /
 
@@ -356,6 +432,7 @@ FOR EACH ROW
 DECLARE
     v_com NUMBER;
     v_archivada CHAR(1);
+    e_comunidad_archivada EXCEPTION;
 BEGIN
     SELECT idComunidad INTO v_com
     FROM Contenido
@@ -366,8 +443,13 @@ BEGIN
     WHERE idComunidad = v_com;
 
     IF v_archivada = 'Y' THEN
-        RAISE_APPLICATION_ERROR(-20013, 'Una comunidad archivada no acepta nuevas publicaciones.');
+        RAISE e_comunidad_archivada;
     END IF;
+EXCEPTION
+    WHEN e_comunidad_archivada THEN
+        RAISE_APPLICATION_ERROR(-20013, 'Una comunidad archivada no acepta nuevas publicaciones.');
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20098, 'No se encontró la publicación o la comunidad asociada.');
 END;
 /
 
@@ -375,10 +457,15 @@ END;
 CREATE OR REPLACE TRIGGER VALIDAR_FECHACREACION_CONTENIDO
 BEFORE INSERT OR UPDATE ON Contenido
 FOR EACH ROW
+DECLARE
+    e_fecha_futura EXCEPTION;
 BEGIN
     IF :NEW.fechaCreacion > SYSDATE THEN
-        RAISE_APPLICATION_ERROR(-20014, 'La fecha de creación de un contenido no puede ser posterior a la fecha actual.');
+        RAISE e_fecha_futura;
     END IF;
+EXCEPTION
+    WHEN e_fecha_futura THEN
+        RAISE_APPLICATION_ERROR(-20014, 'La fecha de creación de un contenido no puede ser posterior a la fecha actual.');
 END;
 /
 
@@ -388,31 +475,43 @@ BEFORE INSERT OR UPDATE ON Contenido
 FOR EACH ROW
 DECLARE
     v_tipo VARCHAR2(25);
+    e_tipo_invalido EXCEPTION;
 BEGIN
     SELECT tipo INTO v_tipo
     FROM Agente
     WHERE idAgente = :NEW.idCreador;
 
     IF v_tipo != 'Generador de contenido' THEN
-        RAISE_APPLICATION_ERROR(-20015, 'Solo los agentes generadores de contenido pueden crear contenido.');
+        RAISE e_tipo_invalido;
     END IF;
+EXCEPTION
+    WHEN e_tipo_invalido THEN
+        RAISE_APPLICATION_ERROR(-20015, 'Solo los agentes generadores de contenido pueden crear contenido.');
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20101, 'El agente creador especificado no existe.');
 END;
 /
 
 -- RNE14
 CREATE OR REPLACE TRIGGER VALIDAR_AGENTE_ACTIVO_CONTENIDO
-BEFORE INSERT OR UPDATE ON CONTENIDO
+BEFORE INSERT OR UPDATE ON Contenido
 FOR EACH ROW
 DECLARE
     v_part VARCHAR2(20);
+    e_no_es_activo EXCEPTION;
 BEGIN
     SELECT participacion INTO v_part
     FROM Pertenece
     WHERE idAgente = :NEW.idCreador AND idComunidad = :NEW.idComunidad;
 
     IF v_part != 'Miembro activo' THEN
-        RAISE_APPLICATION_ERROR(-20016, 'Solo los agentes activos pueden crear contenido.');
+        RAISE e_no_es_activos;
     END IF;
+EXCEPTION
+    WHEN e_no_es_activo THEN
+        RAISE_APPLICATION_ERROR(-20016, 'Solo los agentes activos pueden crear contenido.');
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20102, 'El agente no pertenece a la comunidad especificada.');
 END;
 /
 
@@ -420,10 +519,15 @@ END;
 CREATE OR REPLACE TRIGGER VALIDAR_NO_CITA_AUTOREF
 BEFORE INSERT OR UPDATE ON Cita
 FOR EACH ROW
+DECLARE
+    e_autocita EXCEPTION;
 BEGIN
     IF :NEW.idOriginal = :NEW.idNueva THEN
-        RAISE_APPLICATION_ERROR(-20017, 'Una publicación no puede citarse a sí misma.');
+        RAISE e_autocita;
     END IF;
+EXCEPTION
+    WHEN e_autocita THEN
+        RAISE_APPLICATION_ERROR(-20017, 'Una publicación no puede citarse a sí misma.');
 END;
 /
 
@@ -435,6 +539,8 @@ DECLARE
     v_count NUMBER;
     v_estado VARCHAR2(15);
     v_pub NUMBER(10);
+    e_pub_eliminada EXCEPTION;
+    e_com_eliminado EXCEPTION;
 BEGIN
     SELECT COUNT(*) INTO v_count
     FROM Publicacion
@@ -444,6 +550,10 @@ BEGIN
         SELECT estado INTO v_estado
         FROM Publicacion
         WHERE idPub = :NEW.idContenido;
+        
+        IF v_estado = 'Eliminada' THEN
+            RAISE e_pub_eliminada;
+        END IF;
     ELSE
         SELECT idPubOriginal INTO v_pub
         FROM Comentario
@@ -451,16 +561,19 @@ BEGIN
 
         SELECT estado INTO v_estado
         FROM Publicacion
-        WHERE idPub = :NEW.idContenido;
+        WHERE idPub = v_pub; -- Corrección de variable para evaluar el post original del comentario
 
         IF v_estado = 'Eliminada' THEN
-            RAISE_APPLICATION_ERROR(-20018, 'Un comentario de una publicación eliminada no puede recibir votos.');
+            RAISE e_com_eliminado;
         END IF;
     END IF;
-
-    IF v_estado = 'Eliminada' THEN
+EXCEPTION
+    WHEN e_pub_eliminada THEN
         RAISE_APPLICATION_ERROR(-20019, 'Una publicación eliminada no puede recibir votos.');
-    END IF;
+    WHEN e_com_eliminado THEN
+        RAISE_APPLICATION_ERROR(-20018, 'Un comentario de una publicación eliminada no puede recibir votos.');
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20103, 'El contenido o la publicación original asociada no existe.');
 END;
 /
 
@@ -469,14 +582,20 @@ BEFORE INSERT OR UPDATE ON Comentario
 FOR EACH ROW
 DECLARE
     v_estado VARCHAR2(15);
+    e_pub_invalida EXCEPTION;
 BEGIN
     SELECT estado INTO v_estado
     FROM Publicacion
     WHERE idPub = :NEW.idPubOriginal;
 
     IF v_estado = 'Eliminada' OR v_estado = 'Archivada' THEN
-        RAISE_APPLICATION_ERROR(-20020, 'Una publicación eliminada no puede recibir comentarios.');
+        RAISE e_pub_invalida;
     END IF;
+EXCEPTION
+    WHEN e_pub_invalida THEN
+        RAISE_APPLICATION_ERROR(-20020, 'Una publicación eliminada o archivada no puede recibir comentarios.');
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20104, 'La publicación original especificada no existe.');
 END;
 /
 
@@ -484,10 +603,15 @@ END;
 CREATE OR REPLACE TRIGGER VALIDAR_FECHA_EMISION_VOTO
 BEFORE INSERT OR UPDATE ON Voto
 FOR EACH ROW
+DECLARE
+    e_fecha_futura EXCEPTION;
 BEGIN
     IF :NEW.fechaEmision > SYSDATE THEN
-        RAISE_APPLICATION_ERROR(-20021, 'La fecha de emisión de un voto no puede ser posterior a la actual.');
+        RAISE e_fecha_futura;
     END IF;
+EXCEPTION
+    WHEN e_fecha_futura THEN
+        RAISE_APPLICATION_ERROR(-20021, 'La fecha de emisión de un voto no puede ser posterior a la actual.');
 END;
 /
 
@@ -497,14 +621,20 @@ BEFORE INSERT OR UPDATE ON Accion
 FOR EACH ROW
 DECLARE
     v_tipo VARCHAR2(25);
+    e_no_es_moderador EXCEPTION;
 BEGIN
     SELECT tipo INTO v_tipo
     FROM Agente
     WHERE idAgente = :NEW.idAgente;
 
     IF v_tipo != 'Moderador' THEN
-        RAISE_APPLICATION_ERROR(-20022, 'Solo los moderadores pueden supervisar contenidos.');
+        RAISE e_no_es_moderador;
     END IF;
+EXCEPTION
+    WHEN e_no_es_moderador THEN
+        RAISE_APPLICATION_ERROR(-20022, 'Solo los moderadores pueden supervisar contenidos.');
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20105, 'El agente supervisor especificado no existe.');
 END;
 /
 
@@ -515,8 +645,9 @@ FOR EACH ROW
 DECLARE
     v_com NUMBER;
     v_count NUMBER;
+    e_no_pertenece EXCEPTION;
 BEGIN
-    SELECT idComunidad into v_com
+    SELECT idComunidad INTO v_com
     FROM Contenido
     WHERE idContenido = :NEW.idContenido;
 
@@ -525,8 +656,13 @@ BEGIN
     WHERE idAgente = :NEW.idAgente AND idComunidad = v_com;
 
     IF v_count = 0 THEN
-        RAISE_APPLICATION_ERROR(-20023, 'Un moderador debe pertenecer a una comunidad para supervisar su contenido.');
+        RAISE e_no_pertenece;
     END IF;
+EXCEPTION
+    WHEN e_no_pertenece THEN
+        RAISE_APPLICATION_ERROR(-20023, 'Un moderador debe pertenecer a una comunidad para supervisar su contenido.');
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20106, 'No se encontró el contenido asociado a la acción.');
 END;
 /
 
@@ -536,18 +672,27 @@ BEFORE INSERT OR UPDATE ON Accion
 FOR EACH ROW
 DECLARE
     v_fechaCreacion DATE;
+    e_fecha_futura EXCEPTION;
+    e_fecha_anterior EXCEPTION;
 BEGIN
     IF :NEW.fechaAccion > SYSDATE THEN
-        RAISE_APPLICATION_ERROR(-20024, 'La fecha de realización de una acción no puede ser posterior a la fecha actual.');
+        RAISE e_fecha_futura;
     ELSE
         SELECT fechaCreacion INTO v_fechaCreacion
         FROM Contenido
         WHERE idContenido = :NEW.idContenido;
 
         IF :NEW.fechaAccion < v_fechaCreacion THEN
-            RAISE_APPLICATION_ERROR(-20025, 'La fecha de realización de una acción no puede ser anterior a la fecha de creación del contenido afectado.');
+            RAISE e_fecha_anterior;
         END IF;
     END IF;
+EXCEPTION
+    WHEN e_fecha_futura THEN
+        RAISE_APPLICATION_ERROR(-20024, 'La fecha de realización de una acción no puede ser posterior a la fecha actual.');
+    WHEN e_fecha_anterior THEN
+        RAISE_APPLICATION_ERROR(-20025, 'La fecha de realización de una acción no puede ser anterior a la fecha de creación del contenido afectado.');
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20107, 'No se encontró el contenido afectado por la acción.');
 END;
 /
 
@@ -555,10 +700,15 @@ END;
 CREATE OR REPLACE TRIGGER VALIDAR_COMENTARIO_NO_AUTOREF
 BEFORE INSERT OR UPDATE ON Comentario
 FOR EACH ROW
+DECLARE
+    e_auto_respuesta EXCEPTION;
 BEGIN
     IF :NEW.idContenido = :NEW.idComentario THEN
-        RAISE_APPLICATION_ERROR(-20026, 'Un comentario no puede responderse a si mismo.');
+        RAISE e_auto_respuesta;
     END IF;
+EXCEPTION
+    WHEN e_auto_respuesta THEN
+        RAISE_APPLICATION_ERROR(-20026, 'Un comentario no puede responderse a sí mismo.');
 END;
 /
 
@@ -568,6 +718,7 @@ BEFORE INSERT OR UPDATE ON Comentario
 FOR EACH ROW
 DECLARE
     v_pubOriginal NUMBER(10);
+    e_distinta_publicacion EXCEPTION;
 BEGIN
     IF :NEW.idPubOriginal != :NEW.idContenido THEN
         SELECT idPubOriginal INTO v_pubOriginal
@@ -575,9 +726,14 @@ BEGIN
         WHERE idComentario = :NEW.idContenido;
 
         IF v_pubOriginal != :NEW.idPubOriginal THEN
-            RAISE_APPLICATION_ERROR(-20027, 'Un comentario que responde a otro debe pertenecer a la misma publicación.');
+            RAISE e_distinta_publicacion;
         END IF;
     END IF;
+EXCEPTION
+    WHEN e_distinta_publicacion THEN
+        RAISE_APPLICATION_ERROR(-20027, 'Un comentario que responde a otro debe pertenecer a la misma publicación.');
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20108, 'El comentario al que se intenta responder no existe.');
 END;
 /
 
@@ -589,6 +745,9 @@ BEGIN
     UPDATE Contenido
     SET puntuacion = puntuacion + 1
     WHERE idContenido = :NEW.idContenido;
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE_APPLICATION_ERROR(-20109, 'Error inesperado al actualizar la puntuación del contenido.');
 END;
 /
 
@@ -597,7 +756,7 @@ CREATE OR REPLACE TRIGGER ACTUALIZAR_VISIBILIDAD_ACCION
 AFTER INSERT OR UPDATE ON Accion
 FOR EACH ROW
 BEGIN
-    IF :NEw.tipo = 'Abrir' THEN
+    IF :NEW.tipo = 'Abrir' THEN
         UPDATE Contenido
         SET estado = 'Abierta'
         WHERE idContenido = :NEW.idContenido;
@@ -610,31 +769,37 @@ BEGIN
         SET estado = 'Cerrada'
         WHERE idContenido = :NEW.idContenido;
     END IF;
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE_APPLICATION_ERROR(-20110, 'Error inesperado al actualizar el estado de visibilidad del contenido.');
 END;
 /
 
 -- RNE25
 CREATE OR REPLACE TRIGGER ACTUALIZAR_CONFIG_AGENTE
-BEFORE INSERT OR UPDATE ON Configuracion
-FOR EACH ROW
+AFTER INSERT OR UPDATE ON Configuracion 
+-- Se ejecuta DESPUÉS de que la fila entró a la tabla(evitar mutacion de tabla)
 DECLARE
-    v_fechaUltima DATE;
-BEGIN
-    SELECT fechaAplicacion INTO v_fechaUltima
-    FROM Configuracion
-    ORDER BY fechaAplicacion DESC
-    FETCH FIRST 1 ROWS ONLY;
 
-    IF v_fechaUltima < :NEW.fechaAplicacion THEN
-        UPDATE Agente
-        SET configuracion = :NEW.tipo
-        WHERE idAgente = :NEW.idAgente;
-    END IF;
+BEGIN
+    UPDATE Agente a
+    SET a.configuracion = (
+        SELECT c.tipo
+        FROM Configuracion c
+        WHERE c.idAgente = a.idAgente
+        AND c.fechaAplicacion = (
+            SELECT MAX(c2.fechaAplicacion)
+            FROM Configuracion c2
+            WHERE c2.idAgente = a.idAgente
+        )
+        FETCH FIRST 1 ROWS ONLY
+    )
+    -- Solo modificamos los agentes que están en el proceso actual (optimizacion)
+    WHERE a.idAgente IN (SELECT DISTINCT idAgente FROM Configuracion);
+
 EXCEPTION
-    WHEN NO_DATA_FOUND THEN
-        UPDATE Agente
-        SET configuracion = :NEW.tipo
-        WHERE idAgente = :NEW.idAgente;
+    WHEN OTHERS THEN
+        RAISE_APPLICATION_ERROR(-20111, 'Error al procesar la actualización de la configuración más nueva.');
 END;
 /
 
@@ -687,8 +852,6 @@ VALUES (20, 'cine_y_series', 'Hablemos de películas', TO_DATE('2026-01-20', 'YY
 INSERT INTO Pertenece (idAgente, idComunidad, participacion) VALUES (1, 10, 'Miembro activo');
 INSERT INTO Pertenece (idAgente, idComunidad, participacion) VALUES (2, 10, 'Miembro activo');
 INSERT INTO Pertenece (idAgente, idComunidad, participacion) VALUES (3, 20, 'Miembro activo');
-
--- SOLUCIÓN AL ERROR ORA-20016: Se cambia de 'Seguidor' a 'Miembro activo' para que pueda crear contenido
 INSERT INTO Pertenece (idAgente, idComunidad, participacion) VALUES (3, 10, 'Miembro activo'); 
 
 -- ============================================================================
@@ -702,7 +865,6 @@ INSERT INTO Publicacion (idPub, estado, titulo)
 VALUES (1, 'Abierta', 'Primer Post Oficial de Gaming');
 
 -- Contenido ID 2 (Comentario respondiendo al Contenido 1)
--- Ahora el Agente 3 ya es 'Miembro activo' en la comunidad 10 y el trigger RNE14 lo aprobará.
 INSERT INTO Contenido (idCreador, idComunidad, estado, fechaCreacion, puntuacion, texto)
 VALUES (3, 10, 'Abierta', TO_DATE('2026-03-11', 'YYYY-MM-DD'), 0, '¡Hola! Yo estoy jugando RPGs.');
 
@@ -736,6 +898,79 @@ INSERT INTO Cede (idReclamo, emailUsuarioCed, fechaCesion)
 VALUES (500, 'admin1@red.com', TO_DATE('2026-04-11', 'YYYY-MM-DD'));
 
 COMMIT;
+
+-- ============================================================================
+-- CASOS DE PRUEBA: VALIDACIÓN DE RESTRICCIONES (REGLAS DE NEGOCIO)
+-- Cada uno de estos bloques DEBE fallar y lanzar la excepción controlada.
+-- ============================================================================
+
+SET SERVEROUTPUT ON;
+
+-- ----------------------------------------------------------------------------
+-- PRUEBA 1: Validar RNE01 (Fecha de registro futura en Usuario)
+-- ----------------------------------------------------------------------------
+PROMPT Ejecutando Prueba 1 (RNE01)...;
+
+INSERT INTO Usuario (email, alias, nombre, apellido, paisDeResidencia, estado, fechaDeRegistro)
+VALUES ('viajero_tiempo@red.com', 'Marty', 'Marty', 'McFly', 'Uruguay', 'Activo', SYSDATE + 10);
+
+
+-- ----------------------------------------------------------------------------
+-- PRUEBA 2: Validar RNE14 (Solo Miembros Activos crean contenido)
+-- ----------------------------------------------------------------------------
+PROMPT Ejecutando Prueba 2 (RNE14)...;
+
+INSERT INTO Contenido (idCreador, idComunidad, estado, fechaCreacion, puntuacion, texto)
+VALUES (1, 20, 'Abierta', TO_DATE('2026-03-12', 'YYYY-MM-DD'), 0, 'Intento de posteo en comunidad ajena');
+
+
+-- ----------------------------------------------------------------------------
+-- PRUEBA 3: Validar RNE03 (Agente Suspendido crea contenido)
+-- ----------------------------------------------------------------------------
+PROMPT Ejecutando Prueba 3 (RNE03)...;
+
+-- Primero suspendemos al Agente 1 (Dueño de los inserts de contenido)
+UPDATE Agente SET estado = 'Suspendido' WHERE idAgente = 1;
+
+-- Ahora intentamos que cree un nuevo contenido estando suspendido
+INSERT INTO Contenido (idCreador, idComunidad, estado, fechaCreacion, puntuacion, texto)
+VALUES (1, 10, 'Abierta', TO_DATE('2026-03-16', 'YYYY-MM-DD'), 0, 'Post de un agente suspendido');
+
+-- Restauramos el estado para no romper las pruebas siguientes
+UPDATE Agente SET estado = 'Activo' WHERE idAgente = 1;
+
+
+-- ----------------------------------------------------------------------------
+-- PRUEBA 4: Validar RNE25 (Actualización de Configuración Más Nueva)
+-- ----------------------------------------------------------------------------
+PROMPT Ejecutando Prueba 4 (RNE25)...;
+
+-- Paso 4.1: Insertar configuración del PASADO (No debe alterar al Agente 1)
+INSERT INTO Configuracion (idAgente, version, fechaAplicacion, tipo, descripcion)
+VALUES (1, 'v1.0-vieja', TO_DATE('2026-01-01', 'YYYY-MM-DD'), 'Simple', 'Configuración vieja de prueba');
+
+-- Verificamos: El agente DEBE seguir en 'Compuesta' (Ignoró la vieja)
+SELECT idAgente, configuracion FROM Agente WHERE idAgente = 1;
+
+
+-- Paso 4.2: Insertar configuración del FUTURO (Debe actualizar al Agente 1)
+-- Cambiamos de 'Compuesta' a 'Simple' (que es un valor válido que ya usaste en los inserts base)
+INSERT INTO Configuracion (idAgente, version, fechaAplicacion, tipo, descripcion)
+VALUES (1, 'v2.0-nueva', TO_DATE('2026-05-01', 'YYYY-MM-DD'), 'Simple', 'Configuración nueva de prueba');
+
+-- Verificamos: Ahora el agente DEBE haber cambiado a 'Simple' exitosamente
+SELECT idAgente, configuracion FROM Agente WHERE idAgente = 1;
+
+
+-- ----------------------------------------------------------------------------
+-- PRUEBA 5: Validar Excepción NO_DATA_FOUND integrada
+-- ----------------------------------------------------------------------------
+PROMPT Ejecutando Prueba 5 (RNE19)...;
+
+INSERT INTO Accion (idAgente, idContenido, fechaAccion, tipo)
+VALUES (999, 1, TO_DATE('2026-03-15', 'YYYY-MM-DD'), 'Cerrar');
+
+ROLLBACK; -- Limpiamos los experimentos para dejar la base en su estado original
 
 
 /*
