@@ -1058,9 +1058,9 @@ CREATE OR REPLACE PROCEDURE OBTENER_TOP10_PUBS_ACTIVAS_EN_COMUNIDAD (
     p_cursorRes OUT SYS_REFCURSOR -- https://www.oracletutorial.com/plsql-tutorial/plsql-cursor-variables/
 ) AS
 BEGIN
-    IF p_filtrarPorAdmin = -1 THEN
+    IF p_idAdminFiltro = -1 THEN
         OPEN p_cursorRes FOR
-            SELECT c.puntuacion, c.titulo, c.fechaCreacion, a.nombre, a.emailAdmin
+            SELECT c.puntuacion, p.titulo, c.fechaCreacion, a.nombre, a.emailAdmin
             FROM Publicacion p
             INNER JOIN Contenido c ON c.idContenido = p.idPub
             INNER JOIN Agente a ON a.idAgente = c.idCreador
@@ -1072,7 +1072,7 @@ BEGIN
             FETCH FIRST 10 ROWS ONLY;
     ELSE
         OPEN p_cursorRes FOR
-            SELECT c.puntuacion, c.titulo, c.fechaCreacion, a.nombre, a.emailAdmin
+            SELECT c.puntuacion, p.titulo, c.fechaCreacion, a.nombre, a.emailAdmin
             FROM Publicacion p
             INNER JOIN Contenido c ON c.idContenido = p.idPub
             INNER JOIN Agente a ON a.idAgente = c.idCreador

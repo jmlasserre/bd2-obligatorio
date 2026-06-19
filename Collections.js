@@ -1,6 +1,6 @@
 db.createCollection("agentes_perfil", //Util para consultas de mas adelante en el ejercicio
     {
-        validator :
+        validator:
         {
             $jsonSchema:
             {
