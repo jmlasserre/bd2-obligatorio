@@ -167,7 +167,7 @@ db.createCollection("eventos",
                 
                 },
 
-                detalles : 
+                detalles: 
                 {
                     bsonType: "object"
                 }

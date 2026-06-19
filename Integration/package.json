@@ -1,0 +1,26 @@
+{
+  "name": "integration",
+  "version": "1.0.0",
+  "description": "Integration script between Oracle and MongoDB",
+  "homepage": "https://github.com/jmlasserre/bd2-obligatorio#readme",
+  "bugs": {
+    "url": "https://github.com/jmlasserre/bd2-obligatorio/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jmlasserre/bd2-obligatorio.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "integration.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node integration.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "mongodb": "^7.3.0",
+    "oracledb": "^7.0.0"
+  }
+}
