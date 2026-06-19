@@ -979,91 +979,172 @@ ROLLBACK; -- Limpiamos los experimentos para dejar la base en su estado original
 
 -- 2.1.
 CREATE OR REPLACE PROCEDURE REGISTRAR_AGENTE (
-    p_emailUsuario IN VARCHAR2,
-    p_nombre IN VARCHAR2,
-    p_descAgente IN VARCHAR2,
-    p_estado IN VARCHAR2,
-    p_configuracion IN VARCHAR2,
-    p_tipo IN VARCHAR2,
-    p_fechaCreacion IN DATE,
+    p_emailUsuario    IN VARCHAR2,
+    p_nombre          IN VARCHAR2,
+    p_descAgente      IN VARCHAR2,
+    p_estado          IN VARCHAR2,
+    p_configuracion   IN VARCHAR2,
+    p_tipo            IN VARCHAR2,
+    p_fechaCreacion   IN DATE,
     p_fechaAplicacion IN DATE,
-    p_version IN VARCHAR2,
-    p_descConfig IN VARCHAR2
+    p_version         IN VARCHAR2,
+    p_descConfig      IN VARCHAR2
 ) AS
-    v_idAgente NUMBER(10);
+    v_idAgente    NUMBER(10);
+    v_existeUser  NUMBER;
+    e_user_no_existe EXCEPTION;
 BEGIN
-    INSERT INTO Agente VALUES (p_nombre, p_fechaCreacion, p_descAgente, p_estado, p_configuracion, p_tipo, p_emailUsuario)
+    SELECT COUNT(*) INTO v_existeUser
+    FROM Usuario
+    WHERE email = p_emailUsuario;
+
+    IF v_existeUser = 0 THEN
+        RAISE e_user_no_existe;
+    END IF;
+
+    INSERT INTO Agente (nombre, fechaCreacion, descripcion, estado, configuracion, tipo, emailAdmin)
+    VALUES (p_nombre, p_fechaCreacion, p_descAgente, p_estado, p_configuracion, p_tipo, p_emailUsuario)
     RETURNING idAgente INTO v_idAgente;
 
-    INSERT INTO Configuracion VALUES (v_idAgente, p_version, p_fechaAplicacion, p_descConfig);
-END;
+    INSERT INTO Configuracion (idAgente, version, fechaAplicacion, tipo, descripcion)
+    VALUES (v_idAgente, p_version, p_fechaAplicacion, p_configuracion, p_descConfig);
+EXCEPTION
+    WHEN e_user_no_existe THEN
+        RAISE_APPLICATION_ERROR(-20203, 'El email del administrador provisto no corresponde a un usuario registrado.');
+    WHEN OTHERS THEN
+        RAISE_APPLICATION_ERROR(-20201, 'Error general al registrar el agente: ' || SQLERRM);
+END REGISTRAR_AGENTE;
+/
 
 -- 2.2.
 CREATE OR REPLACE PROCEDURE TRANSFERIR_AGENTE (
     p_emailUsuarioRec IN VARCHAR2,
-    p_idAgente IN NUMBER,
-    p_fechaReclamo IN DATE,
+    p_idAgente        IN NUMBER,
+    p_fechaReclamo    IN DATE,
     p_emailUsuarioCed IN VARCHAR2,
-    p_fechaCesion IN DATE
+    p_fechaCesion     IN DATE
 ) AS
-    v_idReclamo NUMBER(10);
+    v_idReclamo      NUMBER(10);
+    v_existeRec      NUMBER;
+    v_existeAgente   NUMBER;
+    e_datos_invalidos EXCEPTION;
 BEGIN
-    INSERT INTO Reclamo VALUES (p_emailUsuarioRec, p_idAgente, p_fechaReclamo)
+    -- Validamos que el usuario receptor y el agente existan en la base de datos
+    SELECT COUNT(*) INTO v_existeRec FROM Usuario WHERE email = p_emailUsuarioRec;
+    SELECT COUNT(*) INTO v_existeAgente FROM Agente WHERE idAgente = p_idAgente;
+
+    IF v_existeRec = 0 OR v_existeAgente = 0 THEN
+        RAISE e_datos_invalidos;
+    END IF;
+
+    INSERT INTO Reclamo (emailUsuario, idAgente, fechaReclamo)
+    VALUES (p_emailUsuarioRec, p_idAgente, p_fechaReclamo)
     RETURNING idReclamo INTO v_idReclamo;
 
-    INSERT INTO Cede VALUES (v_idReclamo, p_emailUsuarioCed, p_fechaCesion);
-END;
+    INSERT INTO Cede (idReclamo, emailUsuarioCed, fechaCesion)
+    VALUES (v_idReclamo, p_emailUsuarioCed, p_fechaCesion);
 
--- 2.3.
+EXCEPTION
+    WHEN e_datos_invalidos THEN
+        RAISE_APPLICATION_ERROR(-20204, 'El usuario receptor o el agente especificado no existen.');
+    WHEN OTHERS THEN
+        RAISE_APPLICATION_ERROR(-20205, 'Error general al transferir el agente: ' || SQLERRM);
+END TRANSFERIR_AGENTE;
+/
+
 CREATE OR REPLACE PROCEDURE GENERAR_PUBLICACION (
-    p_idAgente IN NUMBER,
-    p_idComunidad IN NUMBER,
-    p_estado IN VARCHAR2,
+    p_idAgente      IN NUMBER,
+    p_idComunidad   IN NUMBER,
+    p_estado        IN VARCHAR2,
     p_fechaCreacion IN DATE,
-    p_puntuacion IN NUMBER,
-    p_texto IN VARCHAR2
+    p_puntuacion    IN NUMBER,
+    p_texto         IN VARCHAR2
 ) AS
+    v_idContenido          NUMBER(10);
+    v_pertenece            NUMBER;
+    e_agente_no_autorizado EXCEPTION;
 BEGIN
-    INSERT INTO Contenido VALUES(
-        p_idAgente,
-        p_idComunidad,
-        p_estado,
-        p_fechaCreacion,
-        p_puntuacion,
-        p_texto
-    );
-END;
+    SELECT COUNT(*) INTO v_pertenece 
+    FROM Pertenece 
+    WHERE idAgente = p_idAgente AND idComunidad = p_idComunidad;
+
+    IF v_pertenece = 0 THEN
+        RAISE e_agente_no_autorizado;
+    END IF;
+
+    INSERT INTO Contenido (idCreador, idComunidad, estado, fechaCreacion, puntuacion, texto)
+    VALUES (p_idAgente, p_idComunidad, p_estado, p_fechaCreacion, p_puntuacion, p_texto)
+    RETURNING idContenido INTO v_idContenido;
+
+    INSERT INTO Publicacion (idPub, estado, titulo)
+    VALUES (v_idContenido, p_estado, SUBSTR(p_texto, 1, 50)); -- Tomamos los primeros 50 caracteres como título por defecto
+EXCEPTION
+    WHEN e_agente_no_autorizado THEN
+        RAISE_APPLICATION_ERROR(-20206, 'El agente no pertenece a la comunidad seleccionada y no puede publicar.');
+    WHEN OTHERS THEN
+        RAISE_APPLICATION_ERROR(-20207, 'Error general al generar la publicación: ' || SQLERRM);
+END GENERAR_PUBLICACION;
+/
 
 -- 2.6.
 CREATE OR REPLACE PROCEDURE MODERAR_CONTENIDO (
     p_idModerador IN NUMBER,
     p_idContenido IN NUMBER,
     p_fechaAccion IN DATE,
-    p_tipo IN VARCHAR2
+    p_tipo        IN VARCHAR2
 ) AS
+    v_existeContenido NUMBER;
+    v_existeMod       NUMBER;
+    e_datos_invalidos EXCEPTION;
 BEGIN
-    INSERT INTO Accion VALUES (
+    SELECT COUNT(*) INTO v_existeContenido FROM Contenido WHERE idContenido = p_idContenido;
+    SELECT COUNT(*) INTO v_existeMod       FROM Agente    WHERE idAgente = p_idModerador;
+
+    IF v_existeContenido = 0 OR v_existeMod = 0 THEN
+        RAISE e_datos_invalidos;
+    END IF;
+
+    INSERT INTO Accion (idAgente, idContenido, fechaAccion, tipo)
+    VALUES (
         p_idModerador,
         p_idContenido,
         p_fechaAccion,
         p_tipo 
     );
-END;
+EXCEPTION
+   WHEN e_datos_invalidos THEN
+        RAISE_APPLICATION_ERROR(-20208, 'El ID del contenido o el ID del moderador especificado no existen en la base de datos.');
+        
+    WHEN OTHERS THEN
+        RAISE_APPLICATION_ERROR(-20209, 'Error general al registrar la acción de moderación: ' || SQLERRM);
+END MODERAR_CONTENIDO;
+/
 
 -- 2.8.
 CREATE OR REPLACE PROCEDURE OBTENER_TOP10_PUBS_ACTIVAS_EN_COMUNIDAD (
-    p_idAdminFiltro IN NUMBER DEFAULT -1,
-    p_idComunidad IN NUMBER,
-    p_idAdmin IN NUMBER,
-    p_cursorRes OUT SYS_REFCURSOR -- https://www.oracletutorial.com/plsql-tutorial/plsql-cursor-variables/
+    p_idAdminFiltro IN NUMBER DEFAULT NULL, -- Filtro opcional por ID de administrador
+    p_idComunidad   IN NUMBER,
+    p_idAdmin       IN NUMBER,              -- ID del administrador que ejecuta el servicio
+    p_cursorRes     OUT SYS_REFCURSOR   -- https://www.oracletutorial.com/plsql-tutorial/plsql-cursor-variables/
+
 ) AS
+    v_pertenece     NUMBER;
+    e_no_autorizado EXCEPTION;
 BEGIN
-    IF p_idAdminFiltro = -1 THEN
+    SELECT COUNT(*) INTO v_pertenece 
+    FROM Pertenece 
+    WHERE idAgente = p_idAdmin AND idComunidad = p_idComunidad;
+
+    IF v_pertenece = 0 THEN
+        RAISE e_no_autorizado;
+    END IF;
+
+    IF p_idAdminFiltro IS NULL THEN
         OPEN p_cursorRes FOR
             SELECT c.puntuacion, p.titulo, c.fechaCreacion, a.nombre, a.emailAdmin
             FROM Publicacion p
             INNER JOIN Contenido c ON c.idContenido = p.idPub
-            INNER JOIN Agente a ON a.idAgente = c.idCreador
+            INNER JOIN Agente a    ON a.idAgente = c.idCreador
             WHERE c.idComunidad = p_idComunidad
             AND p.estado = 'Abierta'
             AND c.puntuacion > 0
@@ -1075,7 +1156,7 @@ BEGIN
             SELECT c.puntuacion, p.titulo, c.fechaCreacion, a.nombre, a.emailAdmin
             FROM Publicacion p
             INNER JOIN Contenido c ON c.idContenido = p.idPub
-            INNER JOIN Agente a ON a.idAgente = c.idCreador
+            INNER JOIN Agente a    ON a.idAgente = c.idCreador
             WHERE c.idComunidad = p_idComunidad
             AND c.idCreador = p_idAdminFiltro
             AND p.estado = 'Abierta'
@@ -1083,9 +1164,14 @@ BEGIN
             AND c.fechaCreacion > (SYSDATE - 30)
             ORDER BY c.puntuacion DESC
             FETCH FIRST 10 ROWS ONLY;
-        RAISE_APPLICATION_ERROR(-20028, 'Parámetro inválido.');
     END IF;
-END;
+EXCEPTION
+    WHEN e_no_autorizado THEN
+        RAISE_APPLICATION_ERROR(-20210, 'El agente que consulta no está autorizado en esta comunidad.');
+    WHEN OTHERS THEN
+        RAISE_APPLICATION_ERROR(-20211, 'Error al procesar el ranking de publicaciones: ' || SQLERRM);
+END OBTENER_TOP10_PUBS_ACTIVAS_EN_COMUNIDAD;
+/
 
 /*
     PARTE 3 
