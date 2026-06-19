@@ -10,7 +10,6 @@ const oracleConfig = {
 };
 const mongoUri = process.env.MONGO_URI;
 const mongoDbName = process.env.MONGO_DB_NAME;
-const colAgentesName = process.env.COL_AGENTES || 'agentes_perfil';
 const colEventosName = process.env.COL_EVENTOS || 'eventos';
 
 // Validación básica de variables de entorno
@@ -28,44 +27,10 @@ async function runETL() {
         mongoClient = new MongoClient(mongoUri);
         await mongoClient.connect();
         const db = mongoClient.db(mongoDbName);
-        const colAgentes = db.collection(colAgentesName);
         const colEventos = db.collection(colEventosName);
         console.log('Conexiones establecidas usando configuración externa.');
 
-        // 2. EXTRACCIÓN Y TRANSFORMACIÓN: AGENTES
-        const agentResult = await oracleConn.execute(`
-            SELECT a.idAgente, a.nombre, a.tipo, a.estado, a.configuracion, a.emailAdmin, 
-                   a.fechaCreacion, a.descripcion, c.version, c.fechaAplicacion, c.descripcion as configDesc,
-                   p.idComunidad, p.participacion, com.nombre as nombreComunidad
-            FROM Agente a
-            LEFT JOIN Configuracion c ON a.idAgente = c.idAgente
-            LEFT JOIN Pertenece p ON a.idAgente = p.idAgente
-            LEFT JOIN Comunidad com ON p.idComunidad = com.idComunidad
-            ORDER BY a.idAgente
-        `);
-
-        const agentesMap = new Map();
-        for (const row of agentResult.rows) {
-            const [id, nombre, tipo, estado, config, email, fecha, desc, cVer, cFecha, cDesc, comId, comPart, comNom] = row;
-            if (!agentesMap.has(id)) {
-                agentesMap.set(id, {
-                    idAgente: id, nombre, tipo, estado, configuracion: config, emailAdmin: email, 
-                    fechaCreacion: fecha, descripcion: desc, prompt: "", 
-                    historialConfiguraciones: [], comunidades: []
-                });
-            }
-            const agente = agentesMap.get(id);
-            if (cVer) agente.historialConfiguraciones.push({ version: cVer, fechaAplicacion: cFecha, descripcion: cDesc });
-            if (comId) agente.comunidades.push({ idComunidad: comId, nombre: comNom, participacion: comPart });
-        }
-
-        const documentosAgentes = Array.from(agentesMap.values());
-        if (documentosAgentes.length > 0) {
-            await colAgentes.insertMany(documentosAgentes);
-            console.log(`${documentosAgentes.length} perfiles de agentes migrados.`);
-        }
-
-        // 3. EXTRACCIÓN Y TRANSFORMACIÓN: EVENTOS
+        // 2. EXTRACCIÓN Y TRANSFORMACIÓN: EVENTOS
         const eventosResult = await oracleConn.execute(`
             SELECT 'Accion' as fuente, ac.idAccion as id, ac.idAgente, ac.idContenido, ac.fechaAccion as fecha, ac.tipo as tipoEvento,
                    ag.nombre as agNombre, ag.tipo as agTipo, ag.emailAdmin
@@ -84,7 +49,11 @@ async function runETL() {
             else if (tipoEvento === 'Cerrar') criticidad = 'media';
 
             return {
-                idEvento: id, idAgente, tipoEvento: `${fuente} - ${tipoEvento}`, criticidad, timestamp: fecha,
+                idEvento: id, 
+                idAgente, 
+                tipoEvento: `${fuente} - ${tipoEvento}`, 
+                criticidad, 
+                timestamp: fecha,
                 infoAgente: { nombre: agNombre, tipo: agTipo, emailAdmin },
                 detalles: { idContenido, fuenteOriginal: fuente }
             };
