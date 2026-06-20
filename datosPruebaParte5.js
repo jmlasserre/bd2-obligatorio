@@ -98,8 +98,8 @@ function construirEventos() {
 
         // ====================================================================
         // BLOQUE 2 — Eventos de criticidad variada, últimos 7 días (Req 5.2)
-        //   Agente 1: 2 alta / 5 total  -> 40%
-        //   Agente 2: 4 alta / 6 total  -> 66.7%
+        //   Agente 1: 1 alta / 2 total  -> 40%
+        //   Agente 2: 3 alta / 5 total  -> 66.7%
         //   Agente 3: 1 alta / 4 total  -> 25%
         //   Agente 4: 3 alta / 3 total  -> 100%
         //   Agente 5: 0 alta / 3 total  -> 0%
