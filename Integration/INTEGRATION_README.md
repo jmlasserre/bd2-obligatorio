@@ -2,7 +2,7 @@
 
 ## ¿Cómo usarlo?
 
-1. Crear las colecciones `agentes_perfil` y `eventos` según se especifica en `Collections.js`.
+1. Crear la coleccion `eventos` según se especifica en `Collections.js`.
 1. Crear un archivo `.env` en la misma carpeta que `integration.js`.
 2. Dentro del archivo, pegar lo siguiente:
 
@@ -22,4 +22,4 @@ COL_EVENTOS=eventos
 ```
 
 3. Editar los campos según la configuración deseada.
-4. Correr `integration.js` con `npm start` o `node integration.js`.
+4. Correr `integration.js` con `npm start` o `node Integration/integration.js`.
