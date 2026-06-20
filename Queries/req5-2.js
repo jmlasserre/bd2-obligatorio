@@ -1,5 +1,6 @@
 #!/usr/bin/node
 
+require('dotenv').config(); // Carga las variables de entorno para que funcione el MONGO_URI
 const {MongoClient} = require('mongodb');
 
 if (typeof global.crypto === 'undefined') 
