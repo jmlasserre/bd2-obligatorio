@@ -36,7 +36,7 @@ db.createCollection("eventos",
                     {
                         id: {bsonType: "int", minimum: 1},
                         nombre: {bsonType: "string"},
-                        tipo: {bsonType: "string"},
+                        tipo: {bsonType: "string", enum: ['Generador de contenido', 'Moderador', 'Observador']},
                     }
                 },
 
