@@ -34,7 +34,7 @@ async function ejecutarConsulta()
             {
                 $group:
                 {
-                    _id: "$idAgente",
+                    _id: "$infoAgente.id",
                     nombreAgente:
                     {
                         $first: "$infoAgente.nombre"
