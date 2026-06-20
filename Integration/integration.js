@@ -20,7 +20,6 @@ if (!oracleConfig.user || !mongoUri) {
 
 async function runETL() {
     let oracleConn, mongoClient;
-
     try {
         // 1. CONEXIONES
         oracleConn = await oracledb.getConnection(oracleConfig);
@@ -33,28 +32,26 @@ async function runETL() {
         // 2. EXTRACCIÓN Y TRANSFORMACIÓN: EVENTOS
         const eventosResult = await oracleConn.execute(`
             SELECT 'Accion' as fuente, ac.idAccion as id, ac.idAgente, ac.idContenido, ac.fechaAccion as fecha, ac.tipo as tipoEvento,
-                   ag.nombre as agNombre, ag.tipo as agTipo, ag.emailAdmin
+                   ag.nombre as agNombre, ag.tipo as agTipo
             FROM Accion ac JOIN Agente ag ON ac.idAgente = ag.idAgente
             UNION ALL
             SELECT 'Voto' as fuente, v.idVoto as id, v.idAgente, v.idContenido, v.fechaEmision as fecha, 'Voto' as tipoEvento,
-                   ag.nombre as agNombre, ag.tipo as agTipo, ag.emailAdmin
+                   ag.nombre as agNombre, ag.tipo as agTipo
             FROM Voto v JOIN Agente ag ON v.idAgente = ag.idAgente
             ORDER BY fecha
         `);
 
         const documentosEventos = eventosResult.rows.map(row => {
-            const [fuente, id, idAgente, idContenido, fecha, tipoEvento, agNombre, agTipo, emailAdmin] = row;
+            const [fuente, id, idAgente, idContenido, fecha, tipoEvento, agNombre, agTipo] = row;
             let criticidad = 'baja';
             if (tipoEvento === 'Eliminar') criticidad = 'alta';
             else if (tipoEvento === 'Cerrar') criticidad = 'media';
-
             return {
-                idEvento: id, 
-                idAgente, 
-                tipoEvento: `${fuente} - ${tipoEvento}`, 
-                criticidad, 
+                idEvento: id,
+                tipoEvento: `${fuente} - ${tipoEvento}`,
+                criticidad,
                 timestamp: fecha,
-                infoAgente: { nombre: agNombre, tipo: agTipo, emailAdmin },
+                infoAgente: { id: idAgente, nombre: agNombre, tipo: agTipo },
                 detalles: { idContenido, fuenteOriginal: fuente }
             };
         });
@@ -65,7 +62,6 @@ async function runETL() {
         }
 
         console.log('Proceso de integración finalizado con éxito.');
-
     } catch (err) {
         console.error('Error en el ETL:', err);
     } finally {
