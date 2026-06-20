@@ -963,7 +963,7 @@ SELECT idAgente, configuracion FROM Agente WHERE idAgente = 1;
 
 
 -- ----------------------------------------------------------------------------
--- PRUEBA 5: Validar Excepción NO_DATA_FOUND integrada
+-- PRUEBA 5: Validar RNE19
 -- ----------------------------------------------------------------------------
 PROMPT Ejecutando Prueba 5 (RNE19)...;
 

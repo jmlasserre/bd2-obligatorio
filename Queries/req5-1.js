@@ -13,8 +13,8 @@ async function ejecutarConsulta() {
         const dbo = client.db(process.env.MONGO_DB_NAME);
         const coleccion = dbo.collection('eventos');
 
-        // PARAMETROS DE PRUEBA (Ajustables según lo que pida el profesor)
-        const idAgenteDeseado = 1; // Probamos con el Agente 1 que tiene varias decisiones en el script
+        // PARAMETROS DE PRUEBA
+        const idAgenteDeseado = 1;
         
         const ahora = new Date();
         const fechaDesde = new Date(ahora.getTime() - 10 * 24 * 60 * 60 * 1000);
@@ -43,7 +43,7 @@ async function ejecutarConsulta() {
                 $project: {
                     _id: 0,
                     fecha: "$timestamp",
-                    contexto: "$detalles.contextoOperacional", // Buscamos adentro de 'detalles'
+                    contexto: "$detalles.contextoOperacional",
                     parametros: "$detalles.parametrosEntrada"
                 }
             }
