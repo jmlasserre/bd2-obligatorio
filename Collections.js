@@ -1,4 +1,3 @@
-//Collection
 db.createCollection("eventos", 
 {
     validator: 
@@ -6,23 +5,9 @@ db.createCollection("eventos",
         $jsonSchema:
         {
             bsonType: "object",
-            required: ["idEvento", "idAgente", "tipoEvento","criticidad", "timestamp", "infoAgente"],
+            required: ["tipoEvento", "criticidad", "timestamp", "infoAgente"],
             properties: 
             {
-                idEvento: 
-                {
-                    bsonType: "int",
-                    description: "Id del evento."
-                },
-
-
-                idAgente: 
-                {
-                    bsonType: "int",
-                    description: "Id del agente que generó el evento."
-                },
-
-
                 tipoEvento: 
                 {
                     bsonType: "string",
@@ -36,7 +21,7 @@ db.createCollection("eventos",
                     description: "Criticidad"
                 },
 
-                timestamp: //Requerido para ejercicios de mas adelante
+                timestamp:
                 {
                     bsonType: "date",
                     description: "Fecha y hora donde se dio el evento"
@@ -46,23 +31,20 @@ db.createCollection("eventos",
                 {
                     bsonType: "object",
                     description: "Informacion de responsabilidad necesaria",
-                    required: ["nombre", "tipo", "emailAdmin"],
+                    required: ["id", "nombre", "tipo"],
                     properties:
                     {
+                        id: {bsonType: "int", minimum: 1},
                         nombre: {bsonType: "string"},
                         tipo: {bsonType: "string"},
-                        emailAdmin: {bsonType: "string"}
                     }
-                
                 },
 
                 detalles: 
                 {
                     bsonType: "object"
                 }
-
             }
-
         }
     }
 })
