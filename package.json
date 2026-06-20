@@ -16,7 +16,8 @@
   "main": "integration.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node integration.js"
+    "start": "node integration.js",
+    "loadTests": "node datosPruebaParte5.js"
   },
   "dependencies": {
     "dotenv": "^17.4.2",

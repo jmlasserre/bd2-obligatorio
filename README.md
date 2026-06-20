@@ -2,6 +2,12 @@
 
 Obligatorio para Bases de Datos 2
 
+## Cargar datos de prueba (Parte 5)
+
+1. Configurar `.env` según se indica en `INTEGRATION_README.md`.
+2. Crear la colección `eventos` en la base de datos de MongoDB especificada.
+3. Ejecutar el comando `npm run loadTests`.
+
 ## Checklist
 
 - [x] Parte 1
