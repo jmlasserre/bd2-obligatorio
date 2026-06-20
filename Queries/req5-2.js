@@ -1,6 +1,6 @@
 #!/usr/bin/node
 
-require('dotenv').config(); // Carga las variables de entorno para que funcione el MONGO_URI
+require('dotenv').config({ path: '../.env' });
 const {MongoClient} = require('mongodb');
 
 if (typeof global.crypto === 'undefined') 
@@ -93,7 +93,7 @@ async function ejecutarConsulta()
                     nombreAgente: 1,
                     eventosAlta: 1,
                     totalEventos: 1,
-                    proporcion: 1
+                    proporcion: { $round: [ "$proporcion", 2 ] }
                 }
             }
         ]).toArray();
