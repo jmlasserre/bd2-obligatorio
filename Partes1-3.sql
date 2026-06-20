@@ -505,7 +505,7 @@ BEGIN
     WHERE idAgente = :NEW.idCreador AND idComunidad = :NEW.idComunidad;
 
     IF v_part != 'Miembro activo' THEN
-        RAISE e_no_es_activos;
+        RAISE e_no_es_activo;
     END IF;
 EXCEPTION
     WHEN e_no_es_activo THEN
@@ -1206,7 +1206,7 @@ EXPLAIN PLAN FOR
     AND pe.idComunidad = c.idComunidad
     AND a.idAgente = pe.idAgente
     AND u.email = a.emailAdmin
-    AND p.estado = 'Activa'
+    AND p.estado = 'Abierta'
     AND co.fechaCreacion > ADD_MONTHS(SYSDATE, -3)
     AND c.tema = 'Política'
     ORDER BY co.puntuacion ASC;
