@@ -47,7 +47,7 @@ async function runETL() {
             if (tipoEvento === 'Eliminar') criticidad = 'alta';
             else if (tipoEvento === 'Cerrar') criticidad = 'media';
             return {
-                idEvento: id,
+                _id: id,
                 tipoEvento: `${fuente} - ${tipoEvento}`,
                 criticidad,
                 timestamp: fecha,
