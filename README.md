@@ -6,13 +6,13 @@ Obligatorio para Bases de Datos 2
 
 ## Cargar datos de prueba
 
-1. Configurar `.env` según se indica en `INTEGRATION_README.md`.
+1. Configurar los parámetros del `config.js` según la configuración deseada.
 2. Crear la colección `eventos` en la base de datos de MongoDB especificada.
 3. Ejecutar el comando `npm run loadTests`.
 
 ## Ejecutar consultas
 
-Creamos comandos para ejecutar fácilmente las consultas de la Parte 5. Los parámetros a utilizar para cada una se deben modificar en el archivo `.env`, cumpliendo con el siguiente formato:
+Creamos comandos para ejecutar fácilmente las consultas de la Parte 5. Los parámetros a utilizar para cada una se deben configurar en `config,js`.
 
 ```raw
 

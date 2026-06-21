@@ -1,24 +1,24 @@
-require('dotenv').config();
+const config = require('../config');
 const { MongoClient } = require('mongodb');
 
-const client = new MongoClient(process.env.MONGO_URI);
+const client = new MongoClient(config.mongo.uri);
 
 async function ejecutarConsulta() {
     try {
         await client.connect();
-        const dbo = client.db(process.env.MONGO_DB_NAME);
-        const coleccion = dbo.collection('eventos');
+        const dbo = client.db(config.mongo.dbName);
+        const coleccion = dbo.collection(config.mongo.colecciones.eventos);
 
         // PARAMETROS DE PRUEBA
-        const idAgenteDeseado = parseInt(process.env.ID_AGENTE_DESEADO_5_1);
-        
-        const fechaDesde = new Date(process.env.FECHA_DESDE);
+        const idAgenteDeseado = config.consultas["5_1"].idAgenteDeseado;
+
+        const fechaDesde = new Date(config.consultas["5_1"].fechaDesde);
         if (isNaN(fechaDesde.getTime())) {
-            throw new Error("FECHA_DESDE en el .env no es una fecha válida");
+            throw new Error("fechaDesde en config.js no es una fecha válida");
         }
-        const fechaHasta = new Date(process.env.FECHA_HASTA);
+        const fechaHasta = new Date(config.consultas["5_1"].fechaHasta);
         if (isNaN(fechaHasta.getTime())) {
-            throw new Error("FECHA_HASTA en el .env no es una fecha válida");
+            throw new Error("fechaHasta en config.js no es una fecha válida");
         }
 
         console.log(`Buscando eventos de decisión para el agente ID: ${idAgenteDeseado}...`);
@@ -56,7 +56,7 @@ async function ejecutarConsulta() {
             console.log("No se encontraron eventos de decisión en ese rango de fechas para este agente.");
         } else {
             console.log(`\n Se encontraron ${resultados.length} eventos de decisión: `);
-            
+
             const tablaLimpia = resultados.map(r => ({ //si no hacemos esto muestra [Object]
                 ...r,
                 parametros: JSON.stringify(r.parametros)

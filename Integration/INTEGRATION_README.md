@@ -3,23 +3,5 @@
 ## ¿Cómo usarlo?
 
 1. Crear la coleccion `eventos` según se especifica en `Collections.js`.
-2. Crear un archivo `.env` en la misma carpeta que `integration.js`.
-3. Dentro del archivo, pegar lo siguiente:
-
-```markdown
-# Oracle DB
-ORACLE_USER=tu_usuario_oracle
-ORACLE_PASSWORD=tu_password_oracle
-ORACLE_CONNECT_STRING=localhost:1521/XEPDB1
-
-# MongoDB
-MONGO_URI=mongodb://localhost:27017
-MONGO_DB_NAME=tu_base_de_datos_mongo
-
-# Colecciones (Opcional, por si cambian de nombre)
-COL_AGENTES=agentes_perfil
-COL_EVENTOS=eventos
-```
-
-4. Editar los campos según la configuración deseada.
-5. Correr `integration.js` con `npm start` o `node Integration/integration.js`.
+2. Configurar el `config.js` según la configuración deseada.
+3. Correr `integration.js` con `npm start` o `node Integration/integration.js`.

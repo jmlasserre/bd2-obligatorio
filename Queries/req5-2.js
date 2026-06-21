@@ -1,19 +1,19 @@
-require('dotenv').config();
+const config = require('../config');
 const { MongoClient } = require('mongodb');
 
-const client = new MongoClient(process.env.MONGO_URI);
+const client = new MongoClient(config.mongo.uri);
 
 async function ejecutarConsulta()
 {
     try
     {
         await client.connect();
-        const dbo = client.db(process.env.MONGO_DB_NAME);
+        const dbo = client.db(config.mongo.dbName);
 
         const fechaDesde = new Date();
         fechaDesde.setDate(fechaDesde.getDate() - 7);
 
-        const resultado = await dbo.collection(process.env.COL_EVENTOS).aggregate([
+        const resultado = await dbo.collection(config.mongo.colecciones.eventos).aggregate([
             {
                 $match: 
                 {

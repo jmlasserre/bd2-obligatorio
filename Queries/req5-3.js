@@ -1,18 +1,18 @@
-require('dotenv').config();
+const config = require('../config');
 const { MongoClient } = require('mongodb');
 
-const client = new MongoClient(process.env.MONGO_URI);
+const client = new MongoClient(config.mongo.uri);
 
 async function ejecutarConsulta() {
     try {
         await client.connect();
-        const dbo = client.db(process.env.MONGO_DB_NAME);
-        const coleccion = dbo.collection('eventos');
+        const dbo = client.db(config.mongo.dbName);
+        const coleccion = dbo.collection(config.mongo.colecciones.eventos);
 
         // PARÁMETROS DE PRUEBA
-        const idAgenteDeseado = parseInt(process.env.ID_AGENTE_DESEADO_5_3); 
-        const horaInicio = parseInt(process.env.HORA_INICIO);
-        const horaFin = parseInt(process.env.HORA_FIN);
+        const idAgenteDeseado = config.consultas["5_3"].idAgenteDeseado;
+        const horaInicio = config.consultas["5_3"].horaInicio;
+        const horaFin = config.consultas["5_3"].horaFin;
 
         console.log(`Buscando interacciones del agente ${idAgenteDeseado} entre las ${horaInicio}:00 y las ${horaFin}:00...`);
 
