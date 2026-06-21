@@ -17,7 +17,10 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node Integration/integration.js",
-    "loadTests": "node datosPruebaParte5.js"
+    "loadTests": "node datosPruebaParte5.js",
+    "query1": "node Queries/req5-1.js",
+    "query2": "node Queries/req5-2.js",
+    "query3": "node Queries/req5-3.js"
   },
   "dependencies": {
     "dotenv": "^17.4.2",

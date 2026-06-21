@@ -3,8 +3,8 @@
 ## ¿Cómo usarlo?
 
 1. Crear la coleccion `eventos` según se especifica en `Collections.js`.
-1. Crear un archivo `.env` en la misma carpeta que `integration.js`.
-2. Dentro del archivo, pegar lo siguiente:
+2. Crear un archivo `.env` en la misma carpeta que `integration.js`.
+3. Dentro del archivo, pegar lo siguiente:
 
 ```markdown
 # Oracle DB
@@ -21,5 +21,5 @@ COL_AGENTES=agentes_perfil
 COL_EVENTOS=eventos
 ```
 
-3. Editar los campos según la configuración deseada.
-4. Correr `integration.js` con `npm start` o `node Integration/integration.js`.
+4. Editar los campos según la configuración deseada.
+5. Correr `integration.js` con `npm start` o `node Integration/integration.js`.

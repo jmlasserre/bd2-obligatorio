@@ -1,9 +1,5 @@
-require('dotenv').config({ path: '../.env' }); // Busca el .env en la raíz
+require('dotenv').config();
 const { MongoClient } = require('mongodb');
-
-if (typeof global.crypto === 'undefined') {
-    global.crypto = require('node:crypto').webcrypto;
-}
 
 const client = new MongoClient(process.env.MONGO_URI);
 
@@ -14,11 +10,11 @@ async function ejecutarConsulta() {
         const coleccion = dbo.collection('eventos');
 
         // PARÁMETROS DE PRUEBA
-        const idAgenteDeseado = 2; 
-        const horaInicio = 8;
-        const horaFin = 17;
+        const idAgenteDeseado = parseInt(process.env.ID_AGENTE_DESEADO_5_3); 
+        const horaInicio = parseInt(process.env.HORA_INICIO);
+        const horaFin = parseInt(process.env.HORA_FIN);
 
-        console.log(`🔎 Buscando interacciones del agente ${idAgenteDeseado} entre las ${horaInicio}:00 y las ${horaFin}:00...`);
+        console.log(`Buscando interacciones del agente ${idAgenteDeseado} entre las ${horaInicio}:00 y las ${horaFin}:00...`);
 
         const pipeline = [
             {
@@ -56,14 +52,14 @@ async function ejecutarConsulta() {
         const resultados = await coleccion.aggregate(pipeline).toArray();
 
         if (resultados.length === 0) {
-            console.log("❌ No se encontraron interacciones en esa franja horaria para este agente.");
+            console.log("No se encontraron interacciones en esa franja horaria para este agente.");
         } else {
-            console.log(`\n✅ Resumen de interacciones por hora:`);
+            console.log(`\n Resumen de interacciones por hora: `);
             console.table(resultados);
         }
 
     } catch (error) {
-        console.error("🔴 Error ejecutando la consulta 5.3:", error);
+        console.error("Error ejecutando la consulta 5.3: ", error);
     } finally {
         await client.close();
     }

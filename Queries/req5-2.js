@@ -1,12 +1,5 @@
-#!/usr/bin/node
-
-require('dotenv').config({ path: '../.env' });
-const {MongoClient} = require('mongodb');
-
-if (typeof global.crypto === 'undefined') 
-{
-    global.crypto = require('node:crypto').webcrypto;
-}
+require('dotenv').config();
+const { MongoClient } = require('mongodb');
 
 const client = new MongoClient(process.env.MONGO_URI);
 

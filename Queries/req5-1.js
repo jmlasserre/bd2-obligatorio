@@ -1,9 +1,5 @@
-require('dotenv').config({ path: '../.env' });
+require('dotenv').config();
 const { MongoClient } = require('mongodb');
-
-if (typeof global.crypto === 'undefined') {
-    global.crypto = require('node:crypto').webcrypto;
-}
 
 const client = new MongoClient(process.env.MONGO_URI);
 
@@ -14,13 +10,18 @@ async function ejecutarConsulta() {
         const coleccion = dbo.collection('eventos');
 
         // PARAMETROS DE PRUEBA
-        const idAgenteDeseado = 1;
+        const idAgenteDeseado = parseInt(process.env.ID_AGENTE_DESEADO_5_1);
         
-        const ahora = new Date();
-        const fechaDesde = new Date(ahora.getTime() - 10 * 24 * 60 * 60 * 1000);
-        const fechaHasta = ahora; // hasta hoy
+        const fechaDesde = new Date(process.env.FECHA_DESDE);
+        if (isNaN(fechaDesde.getTime())) {
+            throw new Error("FECHA_DESDE en el .env no es una fecha válida");
+        }
+        const fechaHasta = new Date(process.env.FECHA_HASTA);
+        if (isNaN(fechaHasta.getTime())) {
+            throw new Error("FECHA_HASTA en el .env no es una fecha válida");
+        }
 
-        console.log(`🔎 Buscando eventos de decisión para el agente ID: ${idAgenteDeseado}...`);
+        console.log(`Buscando eventos de decisión para el agente ID: ${idAgenteDeseado}...`);
 
         const pipeline = [
             {
@@ -52,9 +53,9 @@ async function ejecutarConsulta() {
         const resultados = await coleccion.aggregate(pipeline).toArray();
 
         if (resultados.length === 0) {
-            console.log("❌ No se encontraron eventos de decisión en ese rango de fechas para este agente.");
+            console.log("No se encontraron eventos de decisión en ese rango de fechas para este agente.");
         } else {
-            console.log(`\n✅ Se encontraron ${resultados.length} eventos de decisión:`);
+            console.log(`\n Se encontraron ${resultados.length} eventos de decisión: `);
             
             const tablaLimpia = resultados.map(r => ({ //si no hacemos esto muestra [Object]
                 ...r,
@@ -65,7 +66,7 @@ async function ejecutarConsulta() {
         }
 
     } catch (error) {
-        console.error("🔴 Error ejecutando la consulta:", error);
+        console.error("Error ejecutando la consulta: ", error);
     } finally {
         await client.close();
     }
