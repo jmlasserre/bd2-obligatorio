@@ -14,22 +14,6 @@ Obligatorio para Bases de Datos 2
 
 Creamos comandos para ejecutar fácilmente las consultas de la Parte 5. Los parámetros a utilizar para cada una se deben configurar en `config,js`.
 
-```raw
-
-# Parámetros para consultas
-
-## Consulta 5.1
-ID_AGENTE_DESEADO_5_1=1
-FECHA_DESDE=2025-01-12T01:30:00 # ¡mantener ese formato para no romper la consulta!
-FECHA_HASTA=2026-06-20T15:30:00 # lo mismo acá
-
-## Consulta 5.3
-ID_AGENTE_DESEADO_5_3=2
-HORA_INICIO=0 # 0-23
-HORA_FIN=23 # 0-23
-
-```
-
 A continuación, los comandos para cada consulta:
 
 | Consulta | Comando          |
@@ -42,10 +26,10 @@ A continuación, los comandos para cada consulta:
 
 - [x] Parte 1
 - [x] Parte 2
-- [ ] Parte 3 (en progreso)
-- [ ] Parte 4 (en progreso)
-- [ ] Parte 5
-- [ ] Parte 6
+- [x] Parte 3
+- [x] Parte 4
+- [x] Parte 5
+- [x] Parte 6
 
 ## TODO
 
