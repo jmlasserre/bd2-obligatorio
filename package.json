@@ -23,7 +23,6 @@
     "query3": "node Queries/req5-3.js"
   },
   "dependencies": {
-    "dotenv": "^17.4.2",
     "mongodb": "^7.3.0",
     "oracledb": "^7.0.0"
   }
