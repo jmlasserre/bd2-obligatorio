@@ -1,22 +1,12 @@
-require('dotenv').config(); // Carga las variables del archivo .env
 const oracledb = require('oracledb');
 const { MongoClient } = require('mongodb');
+const config = require('../config');
 
-// --- CONFIGURACIÓN DESDE .ENV ---
-const oracleConfig = {
-    user: process.env.ORACLE_USER,
-    password: process.env.ORACLE_PASSWORD,
-    connectString: process.env.ORACLE_CONNECT_STRING
-};
-const mongoUri = process.env.MONGO_URI;
-const mongoDbName = process.env.MONGO_DB_NAME;
-const colEventosName = process.env.COL_EVENTOS || 'eventos';
-
-// Validación básica de variables de entorno
-if (!oracleConfig.user || !mongoUri) {
-    console.error('Error: Faltan variables de entorno en el archivo .env');
-    process.exit(1);
-}
+// --- CONFIGURACIÓN DESDE CONFIG.JS ---
+const oracleConfig = config.oracle;
+const mongoUri = config.mongo.uri;
+const mongoDbName = config.mongo.dbName;
+const colEventosName = config.mongo.colecciones.eventos;
 
 async function runETL() {
     let oracleConn, mongoClient;
@@ -25,9 +15,10 @@ async function runETL() {
         oracleConn = await oracledb.getConnection(oracleConfig);
         mongoClient = new MongoClient(mongoUri);
         await mongoClient.connect();
+        
         const db = mongoClient.db(mongoDbName);
         const colEventos = db.collection(colEventosName);
-        console.log('Conexiones establecidas usando configuración externa.');
+        console.log('Conexiones establecidas usando config.js.');
 
         // 2. EXTRACCIÓN Y TRANSFORMACIÓN: EVENTOS
         const eventosResult = await oracleConn.execute(`
@@ -44,8 +35,10 @@ async function runETL() {
         const documentosEventos = eventosResult.rows.map(row => {
             const [fuente, id, idAgente, idContenido, fecha, tipoEvento, agNombre, agTipo] = row;
             let criticidad = 'baja';
+            
             if (tipoEvento === 'Eliminar') criticidad = 'alta';
             else if (tipoEvento === 'Cerrar') criticidad = 'media';
+            
             return {
                 _id: id,
                 tipoEvento: `${fuente} - ${tipoEvento}`,
