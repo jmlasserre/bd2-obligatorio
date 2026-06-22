@@ -1212,27 +1212,87 @@ EXPLAIN PLAN FOR
     ORDER BY co.puntuacion ASC;
     
 SELECT *
-FROM TABLE(DBMS_XPLAN.DISPLAY (FORMAT=>'ALL +OUTLINE'))
+FROM TABLE(DBMS_XPLAN.DISPLAY (FORMAT=>'ALL +OUTLINE'));
 
-/*
-1. Operaciones principales:
-- Joins naturales
-- Proyecciones (al final, para mostrar los resultados)
-- Selecciones varias
-- Ordenamiento (por puntuación)
+-- Algunos datos de prueba para verificar el correcto funcionamiento.
+-- 1. DATOS BASE PARA LA PRUEBA
+DECLARE
+    v_idAgente NUMBER;
+    v_idPub1 NUMBER; v_idPub2 NUMBER; v_idPub3 NUMBER; v_idPub4 NUMBER; v_idPub5 NUMBER;
+    v_idCom  NUMBER;
+BEGIN
+    -- 1. DATOS BASE
+    INSERT INTO Usuario (email, alias, nombre, apellido, paisDeResidencia, estado, fechaDeRegistro)
+    VALUES ('pol_admin@red.com', 'PolAdmin', 'Pedro', 'Pascal', 'Argentina', 'Activo', SYSDATE);
 
-2. 
-- Joins => nested loops. Explicar cómo se usan.
-- Proyecciones sobre el final para mostrar los resultados.
-- Selecciones: hay full scan, 
-https://stackoverflow.com/questions/21462886/does-table-access-by-index-rowid-means-optimizer-using-index-or-table
+    INSERT INTO Comunidad (idComunidad, nombre, descripcion, fechaCreacion, tema, archivada)
+    VALUES (30, 'politica_general', 'Debate político', SYSDATE, 'Política', 'N');
 
-3.
+    INSERT INTO Agente (nombre, fechaCreacion, descripcion, estado, configuracion, tipo, emailAdmin)
+    VALUES ('BotDebate', SYSDATE, 'Genera debates', 'Activo', 'Simple', 'Generador de contenido', 'pol_admin@red.com')
+    RETURNING idAgente INTO v_idAgente;
 
+    INSERT INTO Pertenece (idAgente, idComunidad, participacion) VALUES (v_idAgente, 30, 'Miembro activo');
 
+    -- =====================================================================
+    -- CASOS POSITIVOS
+    -- =====================================================================
 
-4.
+    -- Positivo 1
+    INSERT INTO Contenido (idCreador, idComunidad, estado, fechaCreacion, puntuacion, texto)
+    VALUES (v_idAgente, 30, 'Abierta', SYSDATE - 15, 0, 'Texto post 1') RETURNING idContenido INTO v_idPub1;
+    INSERT INTO Publicacion (idPub, estado, titulo) VALUES (v_idPub1, 'Abierta', 'Post Político 1');
 
+    INSERT INTO Contenido (idCreador, idComunidad, estado, fechaCreacion, puntuacion, texto)
+    VALUES (v_idAgente, 30, 'Abierta', SYSDATE - 5, -10, 'Comentario muy negativo 1') RETURNING idContenido INTO v_idCom;
+    -- CORRECCIÓN: idContenido ahora es v_idPub1 (el post al que responde)
+    INSERT INTO Comentario (idComentario, idContenido, idPubOriginal) VALUES (v_idCom, v_idPub1, v_idPub1);
 
+    -- Positivo 2
+    INSERT INTO Contenido (idCreador, idComunidad, estado, fechaCreacion, puntuacion, texto)
+    VALUES (v_idAgente, 30, 'Abierta', SYSDATE - 20, 0, 'Texto post 2') RETURNING idContenido INTO v_idPub2;
+    INSERT INTO Publicacion (idPub, estado, titulo) VALUES (v_idPub2, 'Abierta', 'Post Político 2');
 
-*/
+    INSERT INTO Contenido (idCreador, idComunidad, estado, fechaCreacion, puntuacion, texto)
+    VALUES (v_idAgente, 30, 'Abierta', SYSDATE - 60, -2, 'Comentario negativo 2') RETURNING idContenido INTO v_idCom;
+    INSERT INTO Comentario (idComentario, idContenido, idPubOriginal) VALUES (v_idCom, v_idPub2, v_idPub2);
+
+    -- =====================================================================
+    -- CASOS NEGATIVOS
+    -- =====================================================================
+
+    -- Negativo 1: Puntuación positiva
+    INSERT INTO Contenido (idCreador, idComunidad, estado, fechaCreacion, puntuacion, texto)
+    VALUES (v_idAgente, 30, 'Abierta', SYSDATE - 5, 5, 'Comentario positivo') RETURNING idContenido INTO v_idCom;
+    INSERT INTO Comentario (idComentario, idContenido, idPubOriginal) VALUES (v_idCom, v_idPub1, v_idPub1);
+
+    -- Negativo 2: Publicación Cerrada
+    INSERT INTO Contenido (idCreador, idComunidad, estado, fechaCreacion, puntuacion, texto)
+    VALUES (v_idAgente, 30, 'Cerrada', SYSDATE - 10, 0, 'Texto post cerrado') RETURNING idContenido INTO v_idPub3;
+    INSERT INTO Publicacion (idPub, estado, titulo) VALUES (v_idPub3, 'Cerrada', 'Post Cerrado');
+
+    INSERT INTO Contenido (idCreador, idComunidad, estado, fechaCreacion, puntuacion, texto)
+    VALUES (v_idAgente, 30, 'Abierta', SYSDATE - 2, -8, 'Comentario en post cerrado') RETURNING idContenido INTO v_idCom;
+    INSERT INTO Comentario (idComentario, idContenido, idPubOriginal) VALUES (v_idCom, v_idPub3, v_idPub3);
+
+    -- Negativo 3: > 3 meses
+    INSERT INTO Contenido (idCreador, idComunidad, estado, fechaCreacion, puntuacion, texto)
+    VALUES (v_idAgente, 30, 'Abierta', SYSDATE - 100, 0, 'Texto post viejo') RETURNING idContenido INTO v_idPub4;
+    INSERT INTO Publicacion (idPub, estado, titulo) VALUES (v_idPub4, 'Abierta', 'Post Viejo');
+
+    INSERT INTO Contenido (idCreador, idComunidad, estado, fechaCreacion, puntuacion, texto)
+    VALUES (v_idAgente, 30, 'Abierta', SYSDATE - 100, -3, 'Comentario muy viejo') RETURNING idContenido INTO v_idCom;
+    INSERT INTO Comentario (idComentario, idContenido, idPubOriginal) VALUES (v_idCom, v_idPub4, v_idPub4);
+
+    -- Negativo 4: Tema distinto (Gaming)
+    INSERT INTO Contenido (idCreador, idComunidad, estado, fechaCreacion, puntuacion, texto)
+    VALUES (3, 10, 'Abierta', SYSDATE - 5, 0, 'Texto post gaming') RETURNING idContenido INTO v_idPub5;
+    INSERT INTO Publicacion (idPub, estado, titulo) VALUES (v_idPub5, 'Abierta', 'Post Gaming');
+
+    INSERT INTO Contenido (idCreador, idComunidad, estado, fechaCreacion, puntuacion, texto)
+    VALUES (3, 10, 'Abierta', SYSDATE - 2, -5, 'Comentario negativo gaming') RETURNING idContenido INTO v_idCom;
+    INSERT INTO Comentario (idComentario, idContenido, idPubOriginal) VALUES (v_idCom, v_idPub5, v_idPub5);
+
+    COMMIT;
+END;
+/
