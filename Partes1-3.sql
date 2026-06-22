@@ -49,7 +49,7 @@ CREATE TABLE Agente (
 );
 
 CREATE TABLE Reclamo (
-    idReclamo NUMBER(10) PRIMARY KEY,
+    idReclamo NUMBER(10) GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     emailUsuario VARCHAR2(70) NOT NULL REFERENCES Usuario(email),
     idAgente NUMBER(10) NOT NULL REFERENCES Agente,
     fechaReclamo DATE NOT NULL
@@ -889,13 +889,21 @@ VALUES (1, 'v1.1', TO_DATE('2026-04-01', 'YYYY-MM-DD'), 'Compuesta', 'Actualizac
 -- ============================================================================
 -- 7. RECLAMOS Y CESIONES
 -- ============================================================================
--- Reclamo sobre el Agente 1
-INSERT INTO Reclamo (idReclamo, emailUsuario, idAgente, fechaReclamo)
-VALUES (500, 'user2@red.com', 1, TO_DATE('2026-04-10', 'YYYY-MM-DD'));
+DECLARE
+    v_id NUMBER;
+BEGIN
+    -- Reclamo sobre el Agente 1
+    INSERT INTO Reclamo (emailUsuario, idAgente, fechaReclamo)
+    VALUES ('user2@red.com', 1, TO_DATE('2026-04-10', 'YYYY-MM-DD'))
+    RETURNING idReclamo INTO v_id;
 
--- Cesión del Agente 1 (Ejecuta RNE08 y cambia su admin a user2@red.com)
-INSERT INTO Cede (idReclamo, emailUsuarioCed, fechaCesion)
-VALUES (500, 'admin1@red.com', TO_DATE('2026-04-11', 'YYYY-MM-DD'));
+    -- Cesión del Agente 1
+    INSERT INTO Cede (idReclamo, emailUsuarioCed, fechaCesion)
+    VALUES (v_id, 'admin1@red.com', TO_DATE('2026-04-11', 'YYYY-MM-DD'));
+    
+    COMMIT;
+END;
+/
 
 COMMIT;
 
@@ -954,7 +962,7 @@ SELECT idAgente, configuracion FROM Agente WHERE idAgente = 1;
 
 
 -- Paso 4.2: Insertar configuración del FUTURO (Debe actualizar al Agente 1)
--- Cambiamos de 'Compuesta' a 'Simple' (que es un valor válido que ya usaste en los inserts base)
+-- Cambiamos de 'Compuesta' a 'Simple' (que es un valor válido que ya usamos en los inserts base)
 INSERT INTO Configuracion (idAgente, version, fechaAplicacion, tipo, descripcion)
 VALUES (1, 'v2.0-nueva', TO_DATE('2026-05-01', 'YYYY-MM-DD'), 'Simple', 'Configuración nueva de prueba');
 
@@ -1024,12 +1032,11 @@ CREATE OR REPLACE PROCEDURE TRANSFERIR_AGENTE (
     p_emailUsuarioCed IN VARCHAR2,
     p_fechaCesion     IN DATE
 ) AS
-    v_idReclamo      NUMBER(10);
     v_existeRec      NUMBER;
+    v_idReclamo      NUMBER;
     v_existeAgente   NUMBER;
     e_datos_invalidos EXCEPTION;
 BEGIN
-    -- Validamos que el usuario receptor y el agente existan en la base de datos
     SELECT COUNT(*) INTO v_existeRec FROM Usuario WHERE email = p_emailUsuarioRec;
     SELECT COUNT(*) INTO v_existeAgente FROM Agente WHERE idAgente = p_idAgente;
 
@@ -1058,7 +1065,8 @@ CREATE OR REPLACE PROCEDURE GENERAR_PUBLICACION (
     p_estado        IN VARCHAR2,
     p_fechaCreacion IN DATE,
     p_puntuacion    IN NUMBER,
-    p_texto         IN VARCHAR2
+    p_texto         IN VARCHAR2,
+    p_titulo        IN VARCHAR2
 ) AS
     v_idContenido          NUMBER(10);
     v_pertenece            NUMBER;
@@ -1077,7 +1085,7 @@ BEGIN
     RETURNING idContenido INTO v_idContenido;
 
     INSERT INTO Publicacion (idPub, estado, titulo)
-    VALUES (v_idContenido, p_estado, SUBSTR(p_texto, 1, 50)); -- Tomamos los primeros 50 caracteres como título por defecto
+    VALUES (v_idContenido, p_estado, p_titulo); 
 EXCEPTION
     WHEN e_agente_no_autorizado THEN
         RAISE_APPLICATION_ERROR(-20206, 'El agente no pertenece a la comunidad seleccionada y no puede publicar.');
@@ -1122,11 +1130,10 @@ END MODERAR_CONTENIDO;
 
 -- 2.8.
 CREATE OR REPLACE PROCEDURE OBTENER_TOP10_PUBS_ACTIVAS_EN_COMUNIDAD (
-    p_idAdminFiltro IN NUMBER DEFAULT NULL, -- Filtro opcional por ID de administrador
-    p_idComunidad   IN NUMBER,
-    p_idAdmin       IN NUMBER,              -- ID del administrador que ejecuta el servicio
-    p_cursorRes     OUT SYS_REFCURSOR   -- https://www.oracletutorial.com/plsql-tutorial/plsql-cursor-variables/
-
+    p_idComunidad      IN NUMBER,
+    p_idAdmin          IN NUMBER,              -- ID del agente que ejecuta la consulta
+    p_cursorRes        OUT SYS_REFCURSOR,      -- https://www.oracletutorial.com/plsql-tutorial/plsql-cursor-variables/
+    p_emailAdminFiltro IN VARCHAR2 DEFAULT NULL
 ) AS
     v_pertenece     NUMBER;
     e_no_autorizado EXCEPTION;
@@ -1139,7 +1146,7 @@ BEGIN
         RAISE e_no_autorizado;
     END IF;
 
-    IF p_idAdminFiltro IS NULL THEN
+    IF p_emailAdminFiltro IS NULL THEN
         OPEN p_cursorRes FOR
             SELECT c.puntuacion, p.titulo, c.fechaCreacion, a.nombre, a.emailAdmin
             FROM Publicacion p
@@ -1158,7 +1165,7 @@ BEGIN
             INNER JOIN Contenido c ON c.idContenido = p.idPub
             INNER JOIN Agente a    ON a.idAgente = c.idCreador
             WHERE c.idComunidad = p_idComunidad
-            AND c.idCreador = p_idAdminFiltro
+            AND a.emailAdmin = p_emailAdminFiltro
             AND p.estado = 'Abierta'
             AND c.puntuacion > 0
             AND c.fechaCreacion > (SYSDATE - 30)
